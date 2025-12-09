@@ -1,3 +1,6 @@
 export { queryClient } from "./queryClient";
-export { todoCollection } from "./todoCollection";
+export { poolsCollection } from "./poolsCollection";
+export { expensesCollection } from "./expensesCollection";
+export { friendsCollection } from "./friendsCollection";
+export type { FriendWithUser } from "./friendsCollection";
 export { persister } from "./persister";
