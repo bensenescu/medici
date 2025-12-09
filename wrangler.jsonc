@@ -1,0 +1,36 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "medici",
+  "main": "@tanstack/react-start/server-entry",
+  "compatibility_date": "2025-09-02",
+  "compatibility_flags": ["nodejs_compat"],
+  "dev": {
+    "port": 3001,
+  },
+  "assets": {
+    "directory": ".output/public",
+  },
+  "observability": {
+    "enabled": true,
+  },
+  "services": [
+    {
+      "binding": "EVERY_APP_GATEWAY",
+      "service": "every-app-gateway",
+    },
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "KV",
+      "id": "1a6ec991972e4c04b28e248a201eda6b",
+    },
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "medici",
+      "database_id": "c49aa3d1-208b-41cf-9530-fa1445f28daf",
+      "migrations_dir": "drizzle",
+    },
+  ],
+}
