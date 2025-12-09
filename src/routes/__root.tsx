@@ -16,9 +16,16 @@ import appCss from "@/client/styles/app.css?url";
 import { Toaster } from "sonner";
 import { Sidebar } from "@/client/components/Sidebar";
 import { MobileHeader } from "@/client/components/MobileHeader";
+import { TabBar } from "@/client/components/TabBar";
 import { useIsMobile } from "@/client/hooks/use-mobile";
 import { EmbeddedAppProvider } from "@/embedded-sdk/client";
-import { todoCollection, queryClient, persister } from "@/client/tanstack-db";
+import {
+  poolsCollection,
+  expensesCollection,
+  friendsCollection,
+  queryClient,
+  persister,
+} from "@/client/tanstack-db";
 import { useLiveQuery } from "@tanstack/react-db";
 
 export const Route = createRootRoute({
@@ -74,15 +81,17 @@ function AppLayout() {
   const location = useLocation();
   const isMobile = useIsMobile();
 
-  // Always fetch todos regardless of route so that they are preloaded
-  useLiveQuery((q) => q.from({ todo: todoCollection }));
+  // Preload pools, expenses, and friends data regardless of route
+  useLiveQuery((q) => q.from({ pool: poolsCollection }));
+  useLiveQuery((q) => q.from({ expense: expensesCollection }));
+  useLiveQuery((q) => q.from({ friend: friendsCollection }));
 
   if (isMobile) {
     return (
-      <div className="flex flex-col h-screen">
+      <div className="flex flex-col h-screen bg-base-200">
         <MobileHeader currentPath={location.pathname} />
         <div
-          className="flex-1 overflow-auto"
+          className="flex-1 overflow-auto bg-base-200"
           style={{
             paddingTop: "60px",
             paddingBottom: "80px",
@@ -90,14 +99,15 @@ function AppLayout() {
         >
           <Outlet />
         </div>
+        <TabBar currentPath={location.pathname} />
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen bg-base-200">
       <Sidebar currentPath={location.pathname} />
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto bg-base-200">
         <Outlet />
       </div>
     </div>

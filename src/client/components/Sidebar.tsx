@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ClipboardList, History } from "lucide-react";
+import { Wallet, Users, Sparkles } from "lucide-react";
 
 interface SidebarProps {
   currentPath: string;
@@ -9,56 +9,48 @@ export function Sidebar({ currentPath }: SidebarProps) {
   const navItems = [
     {
       to: "/",
-      label: "Todos",
-      icon: ClipboardList,
-      isActive: currentPath === "/",
+      label: "Expense Pools",
+      icon: Wallet,
+      isActive: currentPath === "/" || currentPath.startsWith("/pools"),
     },
     {
-      to: "/history",
-      label: "History",
-      icon: History,
-      isActive: currentPath === "/history",
+      to: "/friends",
+      label: "Friends",
+      icon: Users,
+      isActive: currentPath === "/friends",
+    },
+    {
+      to: "/rules",
+      label: "Rules",
+      icon: Sparkles,
+      isActive: currentPath === "/rules",
     },
   ];
 
   return (
-    <div className="w-64 bg-gray-50 border-r border-gray-200 h-full">
-      <div className="px-4 py-2 border-b border-gray-300 mb-2">
+    <div className="w-64 bg-base-100 border-r border-base-300 h-full">
+      <div className="px-4 py-3 border-b border-base-300">
         <a
           href={import.meta.env.VITE_GATEWAY_URL}
           target="_top"
-          className={`text-lg font-semibold text-gray-900 mb-4`}
+          className="text-lg font-semibold text-base-content hover:text-primary transition-colors"
         >
           Every App
         </a>
       </div>
-      <div className="px-4 py-2">
-        <nav className="space-y-2">
+      <div className="px-4 py-4">
+        <nav className="space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
-
-            if (item.to === "parent") {
-              return (
-                <a
-                  key={item.label}
-                  href="/"
-                  target="_parent"
-                  className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 focus-visible:outline-none`}
-                >
-                  <Icon className="h-5 w-5" />
-                  {item.label}
-                </a>
-              );
-            }
 
             return (
               <Link
                 key={item.to}
                 to={item.to}
-                className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 focus-visible:outline-none ${
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none ${
                   item.isActive
-                    ? "bg-blue-100 text-blue-700"
-                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                    ? "bg-primary text-primary-content"
+                    : "text-base-content/70 hover:bg-base-200 hover:text-base-content"
                 }`}
               >
                 <Icon className="h-5 w-5" />

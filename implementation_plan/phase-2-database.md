@@ -1,3 +1,22 @@
+# Phase 2: Database Schema Conversion (Drizzle + D1)
+
+## PostgreSQL to SQLite Schema Mapping
+
+| PostgreSQL         | SQLite (Drizzle)      | Notes                               |
+| ------------------ | --------------------- | ----------------------------------- |
+| `UUID`             | `TEXT` (uuid string)  | Generate with `crypto.randomUUID()` |
+| `DOUBLE PRECISION` | `REAL`                | SQLite uses REAL for floats         |
+| `ENUM types`       | `TEXT` with check     | Use Drizzle's `{ enum: [...] }`     |
+| `TIMESTAMP`        | `TEXT` (ISO string)   | Store as ISO 8601 strings           |
+| `BOOLEAN`          | `INTEGER`             | Use `{ mode: "boolean" }`           |
+| `SERIAL`           | `INTEGER PRIMARY KEY` | Auto-increment                      |
+| Partitioned tables | Regular tables        | D1 doesn't support partitioning     |
+| Triggers           | Application logic     | Handle in service layer             |
+
+## New Drizzle Schema
+
+```typescript
+// src/db/schema.ts
 import {
   sqliteTable,
   text,
@@ -7,10 +26,23 @@ import {
 } from "drizzle-orm/sqlite-core";
 import { relations, sql } from "drizzle-orm";
 
-// ============================================================================
-// Enums (stored as TEXT with constraints)
-// ============================================================================
+// Keep from workout-tracker pattern
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull(),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  bio: text("bio"),
+  venmoHandle: text("venmo_handle"),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
 
+// Expense categories as a type
 export const expenseCategories = [
   "food_dining",
   "groceries",
@@ -43,27 +75,6 @@ export const splitMethods = ["percentage", "amount", "default"] as const;
 export const poolRoles = ["PARTICIPANT", "ADMIN"] as const;
 export const friendshipStatuses = ["pending", "accepted"] as const;
 
-// ============================================================================
-// Tables
-// ============================================================================
-
-// Users table - extended from base template
-export const users = sqliteTable("users", {
-  id: text("id").primaryKey(),
-  email: text("email").notNull().unique(),
-  firstName: text("first_name"),
-  lastName: text("last_name"),
-  bio: text("bio"),
-  venmoHandle: text("venmo_handle"),
-  createdAt: text("created_at")
-    .notNull()
-    .default(sql`(current_timestamp)`),
-  updatedAt: text("updated_at")
-    .notNull()
-    .default(sql`(current_timestamp)`),
-});
-
-// Pools table - expense sharing groups
 export const pools = sqliteTable(
   "pools",
   {
@@ -80,7 +91,6 @@ export const pools = sqliteTable(
   (table) => [index("pools_created_at_idx").on(table.createdAt)],
 );
 
-// Pool memberships - many-to-many between users and pools
 export const poolMemberships = sqliteTable(
   "pool_memberships",
   {
@@ -105,7 +115,6 @@ export const poolMemberships = sqliteTable(
   ],
 );
 
-// Expenses table - individual expenses within a pool
 export const expenses = sqliteTable(
   "expenses",
   {
@@ -143,7 +152,6 @@ export const expenses = sqliteTable(
   ],
 );
 
-// Expense line items - who owes what for each expense
 export const expenseLineItems = sqliteTable(
   "expense_line_items",
   {
@@ -165,7 +173,6 @@ export const expenseLineItems = sqliteTable(
   ],
 );
 
-// Friendships table - friend connections between users
 export const friendships = sqliteTable(
   "friendships",
   {
@@ -189,7 +196,6 @@ export const friendships = sqliteTable(
   ],
 );
 
-// Expense category rules - auto-categorization patterns
 export const expenseCategoryRules = sqliteTable(
   "expense_category_rules",
   {
@@ -206,14 +212,10 @@ export const expenseCategoryRules = sqliteTable(
   (table) => [index("rules_user_idx").on(table.userId)],
 );
 
-// ============================================================================
 // Relations
-// ============================================================================
-
 export const usersRelations = relations(users, ({ many }) => ({
   poolMemberships: many(poolMemberships),
   paidExpenses: many(expenses),
-  expenseDebts: many(expenseLineItems),
   friendshipsInitiated: many(friendships, { relationName: "inviting" }),
   friendshipsReceived: many(friendships, { relationName: "friend" }),
   categoryRules: many(expenseCategoryRules),
@@ -261,56 +263,54 @@ export const expenseLineItemsRelations = relations(
   }),
 );
 
-export const friendshipsRelations = relations(friendships, ({ one }) => ({
-  invitingUser: one(users, {
-    fields: [friendships.invitingUserId],
-    references: [users.id],
-    relationName: "inviting",
-  }),
-  friendUser: one(users, {
-    fields: [friendships.friendUserId],
-    references: [users.id],
-    relationName: "friend",
-  }),
-}));
-
-export const expenseCategoryRulesRelations = relations(
-  expenseCategoryRules,
-  ({ one }) => ({
-    user: one(users, {
-      fields: [expenseCategoryRules.userId],
-      references: [users.id],
-    }),
-  }),
-);
-
-// ============================================================================
-// Type Exports
-// ============================================================================
-
+// Type exports
 export type User = typeof users.$inferSelect;
-export type NewUser = typeof users.$inferInsert;
-
 export type Pool = typeof pools.$inferSelect;
-export type NewPool = typeof pools.$inferInsert;
-
 export type PoolMembership = typeof poolMemberships.$inferSelect;
-export type NewPoolMembership = typeof poolMemberships.$inferInsert;
-
 export type Expense = typeof expenses.$inferSelect;
-export type NewExpense = typeof expenses.$inferInsert;
-
 export type ExpenseLineItem = typeof expenseLineItems.$inferSelect;
-export type NewExpenseLineItem = typeof expenseLineItems.$inferInsert;
-
 export type Friendship = typeof friendships.$inferSelect;
-export type NewFriendship = typeof friendships.$inferInsert;
-
 export type ExpenseCategoryRule = typeof expenseCategoryRules.$inferSelect;
-export type NewExpenseCategoryRule = typeof expenseCategoryRules.$inferInsert;
+```
 
-// Enum type exports
-export type ExpenseCategory = (typeof expenseCategories)[number];
-export type SplitMethod = (typeof splitMethods)[number];
-export type PoolRole = (typeof poolRoles)[number];
-export type FriendshipStatus = (typeof friendshipStatuses)[number];
+## What's Removed from PostgreSQL Schema
+
+1. **`member_password` table** - Auth handled by Every App
+2. **Password hashing logic** - Not needed
+3. **JWT generation/validation** - Handled by SDK
+4. **Table partitioning** - Not supported in D1
+5. **Database triggers** - Moved to application layer
+
+## Validation Logic (Move to Service Layer)
+
+The PostgreSQL triggers need to be implemented in TypeScript:
+
+```typescript
+// src/server/services/ExpenseService.ts
+function validateLineItemsSum(expense: CreateExpense) {
+  const lineItemTotal = expense.lineItems.reduce(
+    (sum, li) => sum + li.amount,
+    0,
+  );
+  if (Math.abs(lineItemTotal - expense.amount) > 0.05) {
+    throw new Error("Line items must sum to expense amount");
+  }
+}
+
+function validateDefaultSplits(poolMemberships: PoolMembership[]) {
+  const totalPercentage = poolMemberships.reduce(
+    (sum, m) => sum + m.defaultSplitPercentage,
+    0,
+  );
+  if (Math.abs(totalPercentage - 100) > 0.01) {
+    throw new Error("Default splits must sum to 100%");
+  }
+}
+```
+
+## Phase 2 Deliverables
+
+| Action  | File                                                |
+| ------- | --------------------------------------------------- |
+| Rewrite | `src/db/schema.ts` (new expense schema)             |
+| Create  | `drizzle/0001_expense_tracking.sql` (new migration) |
