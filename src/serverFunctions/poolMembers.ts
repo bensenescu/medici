@@ -24,16 +24,6 @@ export type PoolMemberWithUser = {
 };
 
 // ============================================================================
-// GET CURRENT USER
-// ============================================================================
-
-export const getCurrentUser = createServerFn()
-  .middleware([useSessionTokenClientMiddleware, ensureUserMiddleware])
-  .handler(async ({ context }) => {
-    return { userId: context.userId };
-  });
-
-// ============================================================================
 // GET ALL POOL MEMBERS (for current user's pools)
 // ============================================================================
 

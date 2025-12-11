@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { categoryInfo, type ExpenseCategory } from "@/types";
 import { addMemberToPool } from "@/serverFunctions/pools";
-import { getCurrentUser } from "@/serverFunctions/poolMembers";
+import { useCurrentUser } from "@/embedded-sdk/client";
 
 import { createSettlement } from "@/client/actions/createSettlement";
 import {
@@ -81,7 +81,11 @@ function PoolDetail() {
   const [paymentNote, setPaymentNote] = useState("");
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Get current user from session token (instant, no server call needed)
+  const currentUser = useCurrentUser();
+  // User is guaranteed to exist since this route requires authentication
+  const currentUserId = currentUser!.userId;
 
   // Form states
   const [newExpense, setNewExpense] = useState({
@@ -188,19 +192,6 @@ function PoolDetail() {
     return friends.filter((f) => !memberIds.has(f.user.id));
   }, [friends, poolMembers]);
 
-  // Fetch current user ID on mount
-  useEffect(() => {
-    const fetchCurrentUser = async () => {
-      try {
-        const userResult = await getCurrentUser();
-        setCurrentUserId(userResult.userId);
-      } catch (error) {
-        console.error("Failed to fetch current user:", error);
-      }
-    };
-    fetchCurrentUser();
-  }, []);
-
   // Apply auto-categorization rules when expense name changes
   useEffect(() => {
     if (!newExpense.name.trim() || !rules || rules.length === 0) return;
@@ -216,7 +207,7 @@ function PoolDetail() {
 
   const handleAddExpense = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newExpense.name.trim() && newExpense.amount && currentUserId) {
+    if (newExpense.name.trim() && newExpense.amount) {
       expensesCollection.insert({
         id: crypto.randomUUID(),
         poolId,
@@ -289,7 +280,7 @@ function PoolDetail() {
 
   const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedDebts.length === 0 || !currentUserId) return;
+    if (selectedDebts.length === 0) return;
 
     // Validate all amounts
     const paymentsToSubmit = selectedDebts
@@ -353,8 +344,8 @@ function PoolDetail() {
   const totalExpenses = allExpenses?.reduce((sum, e) => sum + e.amount, 0) ?? 0;
   const unsettledCount = allExpenses?.filter((e) => !e.isSettled).length ?? 0;
 
-  // Return null until all data is fully loaded to prevent layout shift
-  if (!balances || currentUserId === null) {
+  // Return null until balances are computed to prevent layout shift
+  if (!balances) {
     return null;
   }
 
