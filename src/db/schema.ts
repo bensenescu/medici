@@ -40,7 +40,6 @@ export const expenseCategories = [
 ] as const;
 
 export const poolRoles = ["PARTICIPANT", "ADMIN"] as const;
-export const friendshipStatuses = ["pending", "accepted"] as const;
 
 // ============================================================================
 // Tables
@@ -167,21 +166,18 @@ export const friendships = sqliteTable(
   "friendships",
   {
     id: text("id").primaryKey(),
-    invitingUserId: text("inviting_user_id")
+    userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     friendUserId: text("friend_user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    status: text("status", { enum: friendshipStatuses })
-      .notNull()
-      .default("pending"),
     createdAt: text("created_at")
       .notNull()
       .default(sql`(current_timestamp)`),
   },
   (table) => [
-    index("friendships_inviting_idx").on(table.invitingUserId),
+    index("friendships_user_idx").on(table.userId),
     index("friendships_friend_idx").on(table.friendUserId),
   ],
 );
@@ -203,6 +199,36 @@ export const expenseCategoryRules = sqliteTable(
   (table) => [index("rules_user_idx").on(table.userId)],
 );
 
+// Settlements table - tracks individual payments between users
+export const settlements = sqliteTable(
+  "settlements",
+  {
+    id: text("id").primaryKey(),
+    poolId: text("pool_id")
+      .notNull()
+      .references(() => pools.id, { onDelete: "cascade" }),
+    fromUserId: text("from_user_id")
+      .notNull()
+      .references(() => users.id), // who paid (debtor)
+    toUserId: text("to_user_id")
+      .notNull()
+      .references(() => users.id), // who received (creditor)
+    amount: real("amount").notNull(),
+    note: text("note"), // optional: "Venmo", "cash", etc.
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .references(() => users.id), // who recorded this settlement
+  },
+  (table) => [
+    index("settlements_pool_idx").on(table.poolId),
+    index("settlements_from_user_idx").on(table.fromUserId),
+    index("settlements_to_user_idx").on(table.toUserId),
+  ],
+);
+
 // ============================================================================
 // Relations
 // ============================================================================
@@ -211,14 +237,22 @@ export const usersRelations = relations(users, ({ many }) => ({
   poolMemberships: many(poolMemberships),
   paidExpenses: many(expenses),
   expenseDebts: many(expenseLineItems),
-  friendshipsInitiated: many(friendships, { relationName: "inviting" }),
-  friendshipsReceived: many(friendships, { relationName: "friend" }),
+  friendshipsOwned: many(friendships, { relationName: "friendshipsOwned" }),
+  friendshipsReceived: many(friendships, {
+    relationName: "friendshipsReceived",
+  }),
   categoryRules: many(expenseCategoryRules),
+  settlementsMade: many(settlements, { relationName: "settlementsMade" }),
+  settlementsReceived: many(settlements, {
+    relationName: "settlementsReceived",
+  }),
+  settlementsCreated: many(settlements, { relationName: "settlementsCreated" }),
 }));
 
 export const poolsRelations = relations(pools, ({ many }) => ({
   memberships: many(poolMemberships),
   expenses: many(expenses),
+  settlements: many(settlements),
 }));
 
 export const poolMembershipsRelations = relations(
@@ -259,15 +293,15 @@ export const expenseLineItemsRelations = relations(
 );
 
 export const friendshipsRelations = relations(friendships, ({ one }) => ({
-  invitingUser: one(users, {
-    fields: [friendships.invitingUserId],
+  user: one(users, {
+    fields: [friendships.userId],
     references: [users.id],
-    relationName: "inviting",
+    relationName: "friendshipsOwned",
   }),
   friendUser: one(users, {
     fields: [friendships.friendUserId],
     references: [users.id],
-    relationName: "friend",
+    relationName: "friendshipsReceived",
   }),
 }));
 
@@ -280,6 +314,28 @@ export const expenseCategoryRulesRelations = relations(
     }),
   }),
 );
+
+export const settlementsRelations = relations(settlements, ({ one }) => ({
+  pool: one(pools, {
+    fields: [settlements.poolId],
+    references: [pools.id],
+  }),
+  fromUser: one(users, {
+    fields: [settlements.fromUserId],
+    references: [users.id],
+    relationName: "settlementsMade",
+  }),
+  toUser: one(users, {
+    fields: [settlements.toUserId],
+    references: [users.id],
+    relationName: "settlementsReceived",
+  }),
+  createdBy: one(users, {
+    fields: [settlements.createdByUserId],
+    references: [users.id],
+    relationName: "settlementsCreated",
+  }),
+}));
 
 // ============================================================================
 // Type Exports
@@ -306,8 +362,10 @@ export type NewFriendship = typeof friendships.$inferInsert;
 export type ExpenseCategoryRule = typeof expenseCategoryRules.$inferSelect;
 export type NewExpenseCategoryRule = typeof expenseCategoryRules.$inferInsert;
 
+export type Settlement = typeof settlements.$inferSelect;
+export type NewSettlement = typeof settlements.$inferInsert;
+
 // Enum type exports
 export type ExpenseCategory = (typeof expenseCategories)[number];
 
 export type PoolRole = (typeof poolRoles)[number];
-export type FriendshipStatus = (typeof friendshipStatuses)[number];

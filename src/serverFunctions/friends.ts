@@ -7,7 +7,7 @@ import { friendships, users } from "@/db/schema";
 import { eq, and, or } from "drizzle-orm";
 
 // ============================================================================
-// GET ALL FRIENDS (accepted friendships)
+// GET ALL FRIENDS
 // ============================================================================
 
 export const getAllFriends = createServerFn()
@@ -15,31 +15,26 @@ export const getAllFriends = createServerFn()
   .handler(async ({ context }) => {
     const userId = context.userId;
 
-    // Get accepted friendships where current user is involved
-    const acceptedFriendships = await db.query.friendships.findMany({
-      where: and(
-        eq(friendships.status, "accepted"),
-        or(
-          eq(friendships.invitingUserId, userId),
-          eq(friendships.friendUserId, userId),
-        ),
+    // Get friendships where current user is involved
+    const userFriendships = await db.query.friendships.findMany({
+      where: or(
+        eq(friendships.userId, userId),
+        eq(friendships.friendUserId, userId),
       ),
       with: {
-        invitingUser: true,
+        user: true,
         friendUser: true,
       },
     });
 
     // Map to friend users
-    const friends = acceptedFriendships.map((f) => {
-      const friendUser =
-        f.invitingUserId === userId ? f.friendUser : f.invitingUser;
+    const friends = userFriendships.map((f) => {
+      const friendUser = f.userId === userId ? f.friendUser : f.user;
       return {
         friendship: {
           id: f.id,
-          invitingUserId: f.invitingUserId,
+          userId: f.userId,
           friendUserId: f.friendUserId,
-          status: f.status,
           createdAt: f.createdAt,
         },
         user: friendUser,
@@ -50,44 +45,10 @@ export const getAllFriends = createServerFn()
   });
 
 // ============================================================================
-// GET PENDING FRIEND REQUESTS (received by current user)
+// ADD FRIEND (by email)
 // ============================================================================
 
-export const getPendingFriendRequests = createServerFn()
-  .middleware([useSessionTokenClientMiddleware, ensureUserMiddleware])
-  .handler(async ({ context }) => {
-    const userId = context.userId;
-
-    // Get pending requests where current user is the recipient
-    const pendingRequests = await db.query.friendships.findMany({
-      where: and(
-        eq(friendships.status, "pending"),
-        eq(friendships.friendUserId, userId),
-      ),
-      with: {
-        invitingUser: true,
-      },
-    });
-
-    const requests = pendingRequests.map((f) => ({
-      friendship: {
-        id: f.id,
-        invitingUserId: f.invitingUserId,
-        friendUserId: f.friendUserId,
-        status: f.status,
-        createdAt: f.createdAt,
-      },
-      fromUser: f.invitingUser,
-    }));
-
-    return { requests };
-  });
-
-// ============================================================================
-// SEND FRIEND REQUEST
-// ============================================================================
-
-export const sendFriendRequest = createServerFn({ method: "POST" })
+export const addFriend = createServerFn({ method: "POST" })
   .middleware([useSessionTokenClientMiddleware, ensureUserMiddleware])
   .inputValidator((data: unknown) =>
     z.object({ email: z.string().email() }).parse(data),
@@ -101,122 +62,69 @@ export const sendFriendRequest = createServerFn({ method: "POST" })
     });
 
     if (!targetUser) {
-      throw new Response("User not found with that email", { status: 404 });
+      return {
+        success: false,
+        error: "USER_NOT_FOUND",
+        message:
+          "No account found with that email. They need to create an Every App account and use Medici at least once.",
+      };
     }
 
     if (targetUser.id === userId) {
-      throw new Response("Cannot send friend request to yourself", {
-        status: 400,
-      });
+      return {
+        success: false,
+        error: "CANNOT_ADD_SELF",
+        message: "You cannot add yourself as a friend.",
+      };
     }
 
     // Check if friendship already exists
     const existingFriendship = await db.query.friendships.findFirst({
       where: or(
         and(
-          eq(friendships.invitingUserId, userId),
+          eq(friendships.userId, userId),
           eq(friendships.friendUserId, targetUser.id),
         ),
         and(
-          eq(friendships.invitingUserId, targetUser.id),
+          eq(friendships.userId, targetUser.id),
           eq(friendships.friendUserId, userId),
         ),
       ),
     });
 
     if (existingFriendship) {
-      if (existingFriendship.status === "accepted") {
-        throw new Response("Already friends with this user", { status: 400 });
-      } else {
-        throw new Response("Friend request already pending", { status: 400 });
-      }
+      return {
+        success: false,
+        error: "ALREADY_FRIENDS",
+        message: "You are already friends with this user.",
+      };
     }
 
-    // Create friendship request
+    // Create friendship
+    const friendshipId = crypto.randomUUID();
+    const createdAt = new Date().toISOString();
+
     await db.insert(friendships).values({
-      id: crypto.randomUUID(),
-      invitingUserId: userId,
+      id: friendshipId,
+      userId: userId,
       friendUserId: targetUser.id,
-      status: "pending",
-      createdAt: new Date().toISOString(),
+      createdAt,
     });
 
-    return { success: true };
-  });
-
-// ============================================================================
-// ACCEPT FRIEND REQUEST
-// ============================================================================
-
-export const acceptFriendRequest = createServerFn({ method: "POST" })
-  .middleware([useSessionTokenClientMiddleware, ensureUserMiddleware])
-  .inputValidator((data: unknown) =>
-    z.object({ friendshipId: z.string() }).parse(data),
-  )
-  .handler(async ({ data, context }) => {
-    const userId = context.userId;
-
-    // Get the friendship
-    const friendship = await db.query.friendships.findFirst({
-      where: eq(friendships.id, data.friendshipId),
-    });
-
-    if (!friendship) {
-      throw new Response("Friend request not found", { status: 404 });
-    }
-
-    // Verify current user is the recipient
-    if (friendship.friendUserId !== userId) {
-      throw new Response("Cannot accept this friend request", { status: 403 });
-    }
-
-    if (friendship.status !== "pending") {
-      throw new Response("Friend request is not pending", { status: 400 });
-    }
-
-    // Accept the request
-    await db
-      .update(friendships)
-      .set({ status: "accepted" })
-      .where(eq(friendships.id, data.friendshipId));
-
-    return { success: true };
-  });
-
-// ============================================================================
-// REJECT FRIEND REQUEST
-// ============================================================================
-
-export const rejectFriendRequest = createServerFn({ method: "POST" })
-  .middleware([useSessionTokenClientMiddleware, ensureUserMiddleware])
-  .inputValidator((data: unknown) =>
-    z.object({ friendshipId: z.string() }).parse(data),
-  )
-  .handler(async ({ data, context }) => {
-    const userId = context.userId;
-
-    // Get the friendship
-    const friendship = await db.query.friendships.findFirst({
-      where: eq(friendships.id, data.friendshipId),
-    });
-
-    if (!friendship) {
-      throw new Response("Friend request not found", { status: 404 });
-    }
-
-    // Verify current user is the recipient
-    if (friendship.friendUserId !== userId) {
-      throw new Response("Cannot reject this friend request", { status: 403 });
-    }
-
-    if (friendship.status !== "pending") {
-      throw new Response("Friend request is not pending", { status: 400 });
-    }
-
-    // Delete the request
-    await db.delete(friendships).where(eq(friendships.id, data.friendshipId));
-
-    return { success: true };
+    // Return the created friendship with user data for optimistic updates
+    return {
+      success: true,
+      friend: {
+        id: friendshipId,
+        friendship: {
+          id: friendshipId,
+          userId: userId,
+          friendUserId: targetUser.id,
+          createdAt,
+        },
+        user: targetUser,
+      },
+    };
   });
 
 // ============================================================================
@@ -241,10 +149,7 @@ export const removeFriend = createServerFn({ method: "POST" })
     }
 
     // Verify current user is part of this friendship
-    if (
-      friendship.invitingUserId !== userId &&
-      friendship.friendUserId !== userId
-    ) {
+    if (friendship.userId !== userId && friendship.friendUserId !== userId) {
       throw new Response("Cannot remove this friendship", { status: 403 });
     }
 

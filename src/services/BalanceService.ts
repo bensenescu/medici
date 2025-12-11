@@ -5,91 +5,104 @@
  * to minimize the number of transactions needed to settle up.
  *
  * Algorithm:
- * 1. Calculate raw balance: For each user, sum up what they paid minus what they owe
- * 2. Simplify debts: Match creditors (positive balance) with debtors (negative balance)
+ * 1. Calculate raw balance: For each user, sum up what they paid minus their equal share
+ * 2. Apply settlements: Adjust balances based on recorded payments between users
+ * 3. Simplify debts: Match creditors (positive balance) with debtors (negative balance)
  *    to minimize total number of transactions
  */
 
-import type { Expense, ExpenseLineItem, User } from "@/db/schema";
+import type { Expense, Settlement, User } from "@/db/schema";
 
 // Types for balance calculations
 export interface MemberBalance {
   userId: string;
-  user?: Pick<User, "id" | "firstName" | "lastName" | "email">;
+  user?: Pick<User, "id" | "firstName" | "lastName" | "email" | "venmoHandle">;
   balance: number; // Positive = owed money (creditor), Negative = owes money (debtor)
 }
 
 export interface SimplifiedDebt {
   fromUserId: string;
-  fromUser?: Pick<User, "id" | "firstName" | "lastName" | "email">;
+  fromUser?: Pick<
+    User,
+    "id" | "firstName" | "lastName" | "email" | "venmoHandle"
+  >;
   toUserId: string;
-  toUser?: Pick<User, "id" | "firstName" | "lastName" | "email">;
+  toUser?: Pick<
+    User,
+    "id" | "firstName" | "lastName" | "email" | "venmoHandle"
+  >;
   amount: number;
 }
 
 export interface PoolBalanceResult {
   memberBalances: MemberBalance[];
   simplifiedDebts: SimplifiedDebt[];
-  totalUnsettled: number;
+  totalExpenses: number;
 }
-
-// Extended types for expenses with line items
-type ExpenseWithLineItems = Expense & {
-  lineItems: ExpenseLineItem[];
-  paidBy?: Pick<User, "id" | "firstName" | "lastName" | "email">;
-};
 
 export class BalanceService {
   /**
-   * Calculate balances for all members in a pool.
+   * Calculate balances for all members in a pool using equal splits.
    *
-   * @param expenses - All expenses in the pool with their line items
+   * For each expense:
+   * - The payer gets credit for the full amount
+   * - Everyone (including payer) owes their equal share
+   *
+   * Net effect: payer is owed (amount - their share) from the group
+   *
+   * @param expenses - All expenses in the pool
+   * @param settlements - All settlements (payments between users)
    * @param memberUserIds - All member user IDs in the pool
    * @param usersMap - Optional map of userId to user data for display
    * @returns Pool balance result with member balances and simplified debts
    */
   static computePoolBalances(
-    expenses: ExpenseWithLineItems[],
+    expenses: Expense[],
+    settlements: Settlement[],
     memberUserIds: string[],
     usersMap?: Map<
       string,
-      Pick<User, "id" | "firstName" | "lastName" | "email">
+      Pick<User, "id" | "firstName" | "lastName" | "email" | "venmoHandle">
     >,
   ): PoolBalanceResult {
+    const memberCount = memberUserIds.length;
+
     // Initialize net balances for all members
     const netBalances = new Map<string, number>();
     for (const userId of memberUserIds) {
       netBalances.set(userId, 0);
     }
 
-    let totalUnsettled = 0;
+    let totalExpenses = 0;
 
-    // Process each unsettled expense
+    // Process each expense with equal split
     for (const expense of expenses) {
-      if (expense.isSettled) continue;
-
       const payerId = expense.paidByUserId;
+      const amount = expense.amount;
+      const sharePerPerson = amount / memberCount;
 
-      // Process each line item
-      for (const lineItem of expense.lineItems) {
-        if (lineItem.isSettled) continue;
+      totalExpenses += amount;
 
-        const debtorId = lineItem.debtorUserId;
-        const amount = lineItem.amount;
+      // Payer paid the full amount, so they get credit
+      const payerBalance = netBalances.get(payerId) ?? 0;
+      netBalances.set(payerId, payerBalance + amount);
 
-        totalUnsettled += amount;
-
-        // Skip if payer is also the debtor (they owe themselves)
-        if (payerId === debtorId) continue;
-
-        // Payer is owed this amount (positive balance)
-        const payerBalance = netBalances.get(payerId) ?? 0;
-        netBalances.set(payerId, payerBalance + amount);
-
-        // Debtor owes this amount (negative balance)
-        const debtorBalance = netBalances.get(debtorId) ?? 0;
-        netBalances.set(debtorId, debtorBalance - amount);
+      // Everyone owes their share (including the payer)
+      for (const userId of memberUserIds) {
+        const currentBalance = netBalances.get(userId) ?? 0;
+        netBalances.set(userId, currentBalance - sharePerPerson);
       }
+    }
+
+    // Apply settlements: when fromUser pays toUser
+    // - fromUser's debt decreases (balance increases)
+    // - toUser's credit decreases (balance decreases)
+    for (const settlement of settlements) {
+      const fromBalance = netBalances.get(settlement.fromUserId) ?? 0;
+      netBalances.set(settlement.fromUserId, fromBalance + settlement.amount);
+
+      const toBalance = netBalances.get(settlement.toUserId) ?? 0;
+      netBalances.set(settlement.toUserId, toBalance - settlement.amount);
     }
 
     // Convert to MemberBalance array
@@ -107,7 +120,7 @@ export class BalanceService {
     return {
       memberBalances,
       simplifiedDebts,
-      totalUnsettled: Math.round(totalUnsettled * 100) / 100,
+      totalExpenses: Math.round(totalExpenses * 100) / 100,
     };
   }
 
@@ -126,7 +139,7 @@ export class BalanceService {
     netBalances: Map<string, number>,
     usersMap?: Map<
       string,
-      Pick<User, "id" | "firstName" | "lastName" | "email">
+      Pick<User, "id" | "firstName" | "lastName" | "email" | "venmoHandle">
     >,
   ): SimplifiedDebt[] {
     const debts: SimplifiedDebt[] = [];
@@ -199,43 +212,5 @@ export class BalanceService {
     }
 
     return debts;
-  }
-
-  /**
-   * Calculate balance for a specific user in a pool.
-   */
-  static computeUserBalance(
-    expenses: ExpenseWithLineItems[],
-    userId: string,
-  ): number {
-    let balance = 0;
-
-    for (const expense of expenses) {
-      if (expense.isSettled) continue;
-
-      const payerId = expense.paidByUserId;
-
-      for (const lineItem of expense.lineItems) {
-        if (lineItem.isSettled) continue;
-
-        const debtorId = lineItem.debtorUserId;
-        const amount = lineItem.amount;
-
-        // Skip self-payments
-        if (payerId === debtorId) continue;
-
-        // If user paid, they're owed
-        if (payerId === userId) {
-          balance += amount;
-        }
-
-        // If user is the debtor, they owe
-        if (debtorId === userId) {
-          balance -= amount;
-        }
-      }
-    }
-
-    return Math.round(balance * 100) / 100;
   }
 }
