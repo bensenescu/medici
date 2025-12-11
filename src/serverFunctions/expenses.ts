@@ -8,7 +8,7 @@ import {
   expenseLineItems,
   poolMemberships,
   expenseCategories,
-  splitMethods,
+  expenseCategoryRules,
 } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 
@@ -115,7 +115,6 @@ export const createExpense = createServerFn({ method: "POST" })
         name: z.string().min(1),
         amount: z.number().positive(),
         category: z.enum(expenseCategories).default("miscellaneous"),
-        splitMethod: z.enum(splitMethods).default("default"),
         description: z.string().nullable().optional(),
         notes: z.string().nullable().optional(),
         lineItems: z.array(
@@ -139,6 +138,22 @@ export const createExpense = createServerFn({ method: "POST" })
     const userMembership = allMemberships.find((m) => m.userId === userId);
     if (!userMembership) {
       throw new Response("Not a member of this pool", { status: 403 });
+    }
+
+    // Apply auto-categorization rules if category is default
+    let category = data.category;
+    if (category === "miscellaneous") {
+      const userRules = await db.query.expenseCategoryRules.findMany({
+        where: eq(expenseCategoryRules.userId, userId),
+      });
+
+      const expenseNameLower = data.name.toLowerCase();
+      for (const rule of userRules) {
+        if (expenseNameLower.includes(rule.rule.toLowerCase())) {
+          category = rule.category;
+          break;
+        }
+      }
     }
 
     // If no line items provided, auto-generate equal split among all members
@@ -170,8 +185,7 @@ export const createExpense = createServerFn({ method: "POST" })
       paidByUserId: userId,
       name: data.name,
       amount: data.amount,
-      category: data.category,
-      splitMethod: data.splitMethod,
+      category,
       description: data.description,
       notes: data.notes,
       isSettled: false,
@@ -197,8 +211,7 @@ export const createExpense = createServerFn({ method: "POST" })
         paidByUserId: userId,
         name: data.name,
         amount: data.amount,
-        category: data.category,
-        splitMethod: data.splitMethod,
+        category,
         description: data.description,
         notes: data.notes,
         isSettled: false,
@@ -221,7 +234,6 @@ export const updateExpense = createServerFn({ method: "POST" })
         name: z.string().min(1).optional(),
         amount: z.number().positive().optional(),
         category: z.enum(expenseCategories).optional(),
-        splitMethod: z.enum(splitMethods).optional(),
         description: z.string().optional().nullable(),
         notes: z.string().optional().nullable(),
         lineItems: z
@@ -281,8 +293,6 @@ export const updateExpense = createServerFn({ method: "POST" })
     if (data.name !== undefined) updateData.name = data.name;
     if (data.amount !== undefined) updateData.amount = data.amount;
     if (data.category !== undefined) updateData.category = data.category;
-    if (data.splitMethod !== undefined)
-      updateData.splitMethod = data.splitMethod;
     if (data.description !== undefined)
       updateData.description = data.description;
     if (data.notes !== undefined) updateData.notes = data.notes;

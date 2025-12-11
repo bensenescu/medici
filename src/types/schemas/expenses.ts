@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { expenseCategories, splitMethods } from "../index";
+import { expenseCategories } from "../index";
 
 export const lineItemSchema = z.object({
   id: z.string().uuid(),
@@ -13,7 +13,6 @@ export const createExpenseSchema = z.object({
   name: z.string().min(1, "Expense name is required").max(255, "Name too long"),
   amount: z.number().positive("Amount must be positive"),
   category: z.enum(expenseCategories).default("miscellaneous"),
-  splitMethod: z.enum(splitMethods).default("default"),
   description: z.string().max(500, "Description too long").optional(),
   notes: z.string().max(1000, "Notes too long").optional(),
   lineItems: z.array(lineItemSchema).min(1, "At least one line item required"),
@@ -28,7 +27,6 @@ export const updateExpenseSchema = z.object({
     .optional(),
   amount: z.number().positive("Amount must be positive").optional(),
   category: z.enum(expenseCategories).optional(),
-  splitMethod: z.enum(splitMethods).optional(),
   description: z
     .string()
     .max(500, "Description too long")

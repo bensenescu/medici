@@ -39,7 +39,6 @@ export const expenseCategories = [
   "professional_services",
 ] as const;
 
-export const splitMethods = ["percentage", "amount", "default"] as const;
 export const poolRoles = ["PARTICIPANT", "ADMIN"] as const;
 export const friendshipStatuses = ["pending", "accepted"] as const;
 
@@ -123,9 +122,7 @@ export const expenses = sqliteTable(
     category: text("category", { enum: expenseCategories })
       .notNull()
       .default("miscellaneous"),
-    splitMethod: text("split_method", { enum: splitMethods })
-      .notNull()
-      .default("default"),
+
     isSettled: integer("is_settled", { mode: "boolean" })
       .notNull()
       .default(false),
@@ -311,6 +308,6 @@ export type NewExpenseCategoryRule = typeof expenseCategoryRules.$inferInsert;
 
 // Enum type exports
 export type ExpenseCategory = (typeof expenseCategories)[number];
-export type SplitMethod = (typeof splitMethods)[number];
+
 export type PoolRole = (typeof poolRoles)[number];
 export type FriendshipStatus = (typeof friendshipStatuses)[number];

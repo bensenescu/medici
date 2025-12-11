@@ -162,8 +162,8 @@ function FriendsPage() {
                   <div className="card-body p-4 flex-row items-center gap-3">
                     {/* Avatar */}
                     <div className="avatar placeholder">
-                      <div className="bg-warning/20 text-warning w-10 rounded-full">
-                        <span className="text-sm">
+                      <div className="bg-warning/20 text-warning w-10 h-10 rounded-full flex items-center justify-center">
+                        <span className="text-sm font-medium">
                           {request.fromUser.firstName?.[0]?.toUpperCase() ||
                             request.fromUser.email[0].toUpperCase()}
                         </span>
@@ -228,8 +228,8 @@ function FriendsPage() {
                   <div className="card-body p-4 flex-row items-center gap-3">
                     {/* Avatar */}
                     <div className="avatar placeholder">
-                      <div className="bg-primary/10 text-primary w-10 rounded-full">
-                        <span className="text-sm">
+                      <div className="bg-primary/10 text-primary w-10 h-10 rounded-full flex items-center justify-center">
+                        <span className="text-sm font-medium">
                           {friend.user.firstName?.[0]?.toUpperCase() ||
                             friend.user.email[0].toUpperCase()}
                         </span>

@@ -1,29 +1,20 @@
 import { createFileRoute, useLocation } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useLiveQuery } from "@tanstack/react-db";
 import { useIsMobile } from "@/client/hooks/use-mobile";
 import { TabBar } from "@/client/components/TabBar";
 import { Plus, Trash2, Sparkles, Tag } from "lucide-react";
 import { categoryInfo, expenseCategories, type ExpenseCategory } from "@/types";
-import { getAllRules, createRule, deleteRule } from "@/serverFunctions/rules";
+import { rulesCollection } from "@/client/tanstack-db";
 
 export const Route = createFileRoute("/rules")({
   component: RulesPage,
 });
 
-type Rule = {
-  id: string;
-  userId: string;
-  rule: string;
-  category: ExpenseCategory;
-  createdAt: string;
-};
-
 function RulesPage() {
   const isMobile = useIsMobile();
   const location = useLocation();
 
-  const [rules, setRules] = useState<Rule[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [showAddRule, setShowAddRule] = useState(false);
   const [newRule, setNewRule] = useState({
     rule: "",
@@ -32,35 +23,25 @@ function RulesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Fetch rules on mount
-  useEffect(() => {
-    const fetchRules = async () => {
-      try {
-        const result = await getAllRules();
-        setRules(result.rules as Rule[]);
-      } catch (error) {
-        console.error("Failed to fetch rules:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchRules();
-  }, []);
+  // Live query for rules
+  const { data: rulesData, isLoading } = useLiveQuery((q) =>
+    q.from({ rule: rulesCollection }),
+  );
+  const rules = rulesData ?? [];
 
-  const handleAddRule = async (e: React.FormEvent) => {
+  const handleAddRule = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newRule.rule.trim()) return;
 
     setIsSubmitting(true);
     try {
-      const result = await createRule({
-        data: {
-          id: crypto.randomUUID(),
-          rule: newRule.rule.trim(),
-          category: newRule.category,
-        },
+      rulesCollection.insert({
+        id: crypto.randomUUID(),
+        userId: "", // Will be set by server
+        rule: newRule.rule.trim().toLowerCase(),
+        category: newRule.category,
+        createdAt: new Date().toISOString(),
       });
-      setRules([...rules, result.rule as Rule]);
       setNewRule({ rule: "", category: "miscellaneous" });
       setShowAddRule(false);
     } catch (error) {
@@ -70,11 +51,10 @@ function RulesPage() {
     }
   };
 
-  const handleDeleteRule = async (ruleId: string) => {
+  const handleDeleteRule = (ruleId: string) => {
     setDeletingId(ruleId);
     try {
-      await deleteRule({ data: { id: ruleId } });
-      setRules(rules.filter((r) => r.id !== ruleId));
+      rulesCollection.delete([ruleId]);
     } catch (error) {
       console.error("Failed to delete rule:", error);
     } finally {
@@ -86,25 +66,19 @@ function RulesPage() {
     <>
       <div className="px-4 pb-20 md:pt-4 md:pb-0 overflow-auto">
         {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <Sparkles className="h-6 w-6 text-primary" />
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <Sparkles className="h-7 w-7 text-primary" />
             <h1 className="text-2xl font-bold">Auto-Categorization Rules</h1>
           </div>
-          <p className="text-base-content/60">
-            Create rules to automatically categorize your expenses based on
-            keywords in the expense name.
-          </p>
+          <button
+            onClick={() => setShowAddRule(true)}
+            className="btn btn-primary btn-sm"
+          >
+            <Plus className="h-4 w-4" />
+            Add Rule
+          </button>
         </div>
-
-        {/* Add Rule Button */}
-        <button
-          onClick={() => setShowAddRule(true)}
-          className="btn btn-primary w-full mb-6"
-        >
-          <Plus className="h-4 w-4" />
-          Add Rule
-        </button>
 
         {/* Rules List */}
         {isLoading ? (
@@ -120,14 +94,8 @@ function RulesPage() {
                   <div className="card-body p-4">
                     <div className="flex items-center gap-3">
                       {/* Category Badge */}
-                      <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: `${catInfo.color}20` }}
-                      >
-                        <Tag
-                          className="h-5 w-5"
-                          style={{ color: catInfo.color }}
-                        />
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-primary/10">
+                        <Tag className="h-5 w-5 text-primary" />
                       </div>
 
                       {/* Rule Details */}
@@ -140,10 +108,7 @@ function RulesPage() {
                         </p>
                         <p className="text-sm text-base-content/60">
                           Categorize as{" "}
-                          <span
-                            className="font-medium"
-                            style={{ color: catInfo.color }}
-                          >
+                          <span className="font-medium text-primary">
                             {catInfo.label}
                           </span>
                         </p>

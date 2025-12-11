@@ -1,7 +1,6 @@
 // Re-export types from database schema
 export {
   expenseCategories,
-  splitMethods,
   poolRoles,
   friendshipStatuses,
   type User,
@@ -12,7 +11,6 @@ export {
   type Friendship,
   type ExpenseCategoryRule,
   type ExpenseCategory,
-  type SplitMethod,
   type PoolRole,
   type FriendshipStatus,
 } from "@/db/schema";
@@ -53,7 +51,6 @@ export type ExpenseWithDetails = {
   description: string | null;
   notes: string | null;
   category: string;
-  splitMethod: string;
   isSettled: boolean;
   createdAt: string;
   updatedAt: string;
