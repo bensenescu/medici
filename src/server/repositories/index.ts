@@ -5,7 +5,11 @@
 
 export { UserRepository } from "./UserRepository";
 export { PoolRepository } from "./PoolRepository";
-export { PoolMembershipRepository } from "./PoolMembershipRepository";
+export {
+  PoolMembershipRepository,
+  verifyPoolMembership,
+  verifyPoolAdmin,
+} from "./PoolMembershipRepository";
 export { ExpenseRepository } from "./ExpenseRepository";
 export { FriendshipRepository } from "./FriendshipRepository";
 export { SettlementRepository } from "./SettlementRepository";

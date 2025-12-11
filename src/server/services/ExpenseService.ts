@@ -12,7 +12,9 @@ import {
   ExpenseRepository,
   PoolMembershipRepository,
   ExpenseCategoryRuleRepository,
+  verifyPoolMembership,
 } from "@/server/repositories";
+import { applyCategoryRules } from "@/utils/categoryRules";
 
 export interface CreateExpenseInput {
   id: string;
@@ -52,15 +54,7 @@ export class ExpenseService {
    * Verifies user is a member of the pool.
    */
   static async getExpensesByPool(userId: string, poolId: string) {
-    const membership = await PoolMembershipRepository.findByPoolAndUser(
-      poolId,
-      userId,
-    );
-
-    if (!membership) {
-      throw new Error("Not a member of this pool");
-    }
-
+    await verifyPoolMembership(userId, poolId);
     return ExpenseRepository.findAllByPoolWithRelations(poolId);
   }
 
@@ -69,49 +63,19 @@ export class ExpenseService {
    * Verifies user is a member and applies auto-categorization rules.
    */
   static async createExpense(userId: string, input: CreateExpenseInput) {
-    // Verify user is a member of the pool
-    const membership = await PoolMembershipRepository.findByPoolAndUser(
-      input.poolId,
-      userId,
-    );
-
-    if (!membership) {
-      throw new Error("Not a member of this pool");
-    }
+    await verifyPoolMembership(userId, input.poolId);
 
     // Apply auto-categorization rules if category is default
     let category = input.category;
     if (category === "miscellaneous") {
       const userRules =
         await ExpenseCategoryRuleRepository.findAllByUser(userId);
-      const expenseNameLower = input.name.toLowerCase();
-
-      for (const rule of userRules) {
-        if (expenseNameLower.includes(rule.rule.toLowerCase())) {
-          category = rule.category;
-          break;
-        }
-      }
+      category = applyCategoryRules(input.name, userRules, input.category);
     }
 
     const now = new Date().toISOString();
 
-    // Create expense
-    await ExpenseRepository.create({
-      id: input.id,
-      poolId: input.poolId,
-      paidByUserId: userId,
-      name: input.name,
-      amount: input.amount,
-      category,
-      description: input.description,
-      notes: input.notes,
-      isSettled: false,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    return {
+    const expenseData = {
       id: input.id,
       poolId: input.poolId,
       paidByUserId: userId,
@@ -124,6 +88,10 @@ export class ExpenseService {
       createdAt: now,
       updatedAt: now,
     };
+
+    await ExpenseRepository.create(expenseData);
+
+    return expenseData;
   }
 
   /**
@@ -131,22 +99,12 @@ export class ExpenseService {
    * Verifies user is a member of the pool.
    */
   static async updateExpense(userId: string, input: UpdateExpenseInput) {
-    // Get the expense to verify access
     const expense = await ExpenseRepository.findById(input.id);
-
     if (!expense) {
       throw new Error("Expense not found");
     }
 
-    // Verify user is a member of the pool
-    const membership = await PoolMembershipRepository.findByPoolAndUser(
-      expense.poolId,
-      userId,
-    );
-
-    if (!membership) {
-      throw new Error("Not a member of this pool");
-    }
+    await verifyPoolMembership(userId, expense.poolId);
 
     const updateData: Record<string, unknown> = {
       updatedAt: new Date().toISOString(),
@@ -169,23 +127,12 @@ export class ExpenseService {
    * Verifies user is a member of the pool.
    */
   static async deleteExpense(userId: string, expenseId: string) {
-    // Get the expense to verify access
     const expense = await ExpenseRepository.findById(expenseId);
-
     if (!expense) {
       throw new Error("Expense not found");
     }
 
-    // Verify user is a member of the pool
-    const membership = await PoolMembershipRepository.findByPoolAndUser(
-      expense.poolId,
-      userId,
-    );
-
-    if (!membership) {
-      throw new Error("Not a member of this pool");
-    }
-
+    await verifyPoolMembership(userId, expense.poolId);
     await ExpenseRepository.delete(expenseId);
 
     return { success: true };

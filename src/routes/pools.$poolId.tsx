@@ -57,7 +57,6 @@ function PoolDetail() {
 
   // Get current user from session token (instant, no server call needed)
   const currentUser = useCurrentUser();
-  const currentUserId = currentUser!.userId;
 
   // Live queries
   const { data: allPools } = useLiveQuery((q) =>
@@ -144,10 +143,11 @@ function PoolDetail() {
     amount: number;
     category: ExpenseCategory;
   }) => {
+    if (!currentUser) return;
     expensesCollection.insert({
       id: crypto.randomUUID(),
       poolId,
-      paidByUserId: currentUserId,
+      paidByUserId: currentUser.userId,
       name: expense.name,
       amount: expense.amount,
       description: null,
@@ -197,10 +197,11 @@ function PoolDetail() {
     payments: Array<{ toUserId: string; amount: number }>,
     note: string,
   ) => {
+    if (!currentUser) return;
     for (const payment of payments) {
       createSettlement({
         poolId,
-        fromUserId: currentUserId,
+        optimisticFromUserId: currentUser.userId,
         toUserId: payment.toUserId,
         amount: payment.amount,
         note: note || undefined,
@@ -223,10 +224,12 @@ function PoolDetail() {
   const totalExpenses = allExpenses?.reduce((sum, e) => sum + e.amount, 0) ?? 0;
   const unsettledCount = allExpenses?.filter((e) => !e.isSettled).length ?? 0;
 
-  // Loading state
-  if (!balances) {
+  // Loading state - wait for user and balances
+  if (!currentUser || !balances) {
     return null;
   }
+
+  const currentUserId = currentUser.userId;
 
   // Pool not found
   if (!pool) {

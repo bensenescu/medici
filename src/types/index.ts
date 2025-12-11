@@ -12,6 +12,9 @@ export {
   type PoolRole,
 } from "@/db/schema";
 
+// Import for local use
+import { expenseCategories as _expenseCategories } from "@/db/schema";
+
 // Re-export balance types from service (single source of truth)
 export type {
   MemberBalance,
@@ -55,7 +58,7 @@ export type ExpenseWithDetails = {
   amount: number;
   description: string | null;
   notes: string | null;
-  category: string;
+  category: (typeof _expenseCategories)[number];
   isSettled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -71,10 +74,13 @@ export type ExpenseWithDetails = {
   };
 };
 
-// Category display info
+// Category display info type
+type CategoryInfo = { label: string; icon: string; color: string };
+
+// Category display info - typed to ensure all categories have display info
 export const categoryInfo: Record<
-  string,
-  { label: string; icon: string; color: string }
+  (typeof _expenseCategories)[number],
+  CategoryInfo
 > = {
   food_dining: { label: "Food & Dining", icon: "utensils", color: "#f97316" },
   groceries: { label: "Groceries", icon: "shopping-cart", color: "#22c55e" },

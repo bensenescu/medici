@@ -50,7 +50,7 @@ function RulesPage() {
   const handleDeleteRule = (ruleId: string) => {
     setDeletingId(ruleId);
     try {
-      rulesCollection.delete([ruleId]);
+      rulesCollection.delete(ruleId);
     } catch (error) {
       console.error("Failed to delete rule:", error);
     } finally {

@@ -9,6 +9,8 @@ import {
   PoolMembershipRepository,
   ExpenseRepository,
   SettlementRepository,
+  verifyPoolMembership,
+  verifyPoolAdmin,
 } from "@/server/repositories";
 import { BalanceService, type BalanceUser } from "./BalanceService";
 
@@ -66,17 +68,9 @@ export class PoolService {
    * Verifies user is a member.
    */
   static async getPool(userId: string, poolId: string) {
-    const membership = await PoolMembershipRepository.findByPoolAndUser(
-      poolId,
-      userId,
-    );
-
-    if (!membership) {
-      throw new Error("Not a member of this pool");
-    }
+    await verifyPoolMembership(userId, poolId);
 
     const pool = await PoolRepository.findById(poolId);
-
     if (!pool) {
       throw new Error("Pool not found");
     }
@@ -132,14 +126,7 @@ export class PoolService {
    * Verifies user is admin.
    */
   static async updatePool(userId: string, input: UpdatePoolInput) {
-    const membership = await PoolMembershipRepository.findByPoolAndUser(
-      input.id,
-      userId,
-    );
-
-    if (!membership || membership.role !== "ADMIN") {
-      throw new Error("Must be pool admin to update");
-    }
+    await verifyPoolAdmin(userId, input.id);
 
     const updateData: Record<string, unknown> = {
       updatedAt: new Date().toISOString(),
@@ -159,17 +146,8 @@ export class PoolService {
    * Verifies user is admin.
    */
   static async deletePool(userId: string, poolId: string) {
-    const membership = await PoolMembershipRepository.findByPoolAndUser(
-      poolId,
-      userId,
-    );
-
-    if (!membership || membership.role !== "ADMIN") {
-      throw new Error("Must be pool admin to delete");
-    }
-
+    await verifyPoolAdmin(userId, poolId);
     await PoolRepository.delete(poolId);
-
     return { success: true };
   }
 
@@ -182,14 +160,7 @@ export class PoolService {
     poolId: string,
     friendId: string,
   ) {
-    const membership = await PoolMembershipRepository.findByPoolAndUser(
-      poolId,
-      userId,
-    );
-
-    if (!membership || membership.role !== "ADMIN") {
-      throw new Error("Must be pool admin to add members");
-    }
+    await verifyPoolAdmin(userId, poolId);
 
     // Check if friend is already a member
     const existingMembership = await PoolMembershipRepository.findByPoolAndUser(
@@ -207,7 +178,6 @@ export class PoolService {
       poolId: poolId,
       userId: friendId,
       role: "PARTICIPANT",
-      defaultSplitPercentage: 0,
       createdAt: new Date().toISOString(),
     });
 
@@ -223,14 +193,7 @@ export class PoolService {
     poolId: string,
     memberId: string,
   ) {
-    const membership = await PoolMembershipRepository.findByPoolAndUser(
-      poolId,
-      userId,
-    );
-
-    if (!membership || membership.role !== "ADMIN") {
-      throw new Error("Must be pool admin to remove members");
-    }
+    await verifyPoolAdmin(userId, poolId);
 
     // Can't remove yourself if you're the only admin
     if (memberId === userId) {
@@ -251,14 +214,7 @@ export class PoolService {
    * Verifies user is a member.
    */
   static async getPoolBalances(userId: string, poolId: string) {
-    const membership = await PoolMembershipRepository.findByPoolAndUser(
-      poolId,
-      userId,
-    );
-
-    if (!membership) {
-      throw new Error("Not a member of this pool");
-    }
+    await verifyPoolMembership(userId, poolId);
 
     const allMemberships =
       await PoolMembershipRepository.findAllByPoolWithUsers(poolId);

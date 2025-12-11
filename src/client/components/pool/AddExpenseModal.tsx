@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import type { ExpenseCategory } from "@/types";
-import { CategorySelect } from "./CategorySelect";
+import { ExpenseForm, type ExpenseFormData } from "./ExpenseForm";
+import { applyCategoryRules } from "@/utils/categoryRules";
 
 interface Rule {
   rule: string;
@@ -18,48 +19,44 @@ interface AddExpenseModalProps {
   rules: Rule[] | undefined;
 }
 
+const DEFAULT_FORM_DATA: ExpenseFormData = {
+  name: "",
+  amount: "",
+  category: "miscellaneous",
+};
+
 export function AddExpenseModal({
   isOpen,
   onClose,
   onSubmit,
   rules,
 }: AddExpenseModalProps) {
-  const [name, setName] = useState("");
-  const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState<ExpenseCategory>("miscellaneous");
+  const [formData, setFormData] = useState<ExpenseFormData>(DEFAULT_FORM_DATA);
 
   // Apply auto-categorization rules when expense name changes
   useEffect(() => {
-    if (!name.trim() || !rules || rules.length === 0) return;
+    if (!formData.name.trim() || !rules || rules.length === 0) return;
 
-    const expenseNameLower = name.toLowerCase();
-    for (const rule of rules) {
-      if (expenseNameLower.includes(rule.rule.toLowerCase())) {
-        setCategory(rule.category);
-        break;
-      }
+    const matchedCategory = applyCategoryRules(formData.name, rules);
+    if (matchedCategory !== "miscellaneous") {
+      setFormData((prev) => ({ ...prev, category: matchedCategory }));
     }
-  }, [name, rules]);
+  }, [formData.name, rules]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (name.trim() && amount) {
+    if (formData.name.trim() && formData.amount) {
       onSubmit({
-        name: name.trim(),
-        amount: parseFloat(amount),
-        category,
+        name: formData.name.trim(),
+        amount: parseFloat(formData.amount),
+        category: formData.category,
       });
-      // Reset form
-      setName("");
-      setAmount("");
-      setCategory("miscellaneous");
+      setFormData(DEFAULT_FORM_DATA);
     }
   };
 
   const handleClose = () => {
-    setName("");
-    setAmount("");
-    setCategory("miscellaneous");
+    setFormData(DEFAULT_FORM_DATA);
     onClose();
   };
 
@@ -70,60 +67,13 @@ export function AddExpenseModal({
     >
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <h3 className="font-bold text-lg mb-6">Add New Expense</h3>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="form-control w-full">
-            <label className="label">
-              <span className="label-text font-medium">Expense Name</span>
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Groceries, Dinner, Utilities"
-              className="input input-bordered w-full"
-              autoFocus
-            />
-          </div>
-          <div className="form-control w-full">
-            <label className="label">
-              <span className="label-text font-medium">Amount</span>
-            </label>
-            <label className="input input-bordered w-full flex items-center gap-2">
-              <span className="text-base-content/60">$</span>
-              <input
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-                className="grow bg-transparent outline-none"
-              />
-            </label>
-          </div>
-          <div className="form-control w-full">
-            <label className="label">
-              <span className="label-text font-medium">Category</span>
-            </label>
-            <CategorySelect value={category} onChange={setCategory} />
-          </div>
-          <div className="modal-action pt-2">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="btn btn-ghost"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={!name.trim() || !amount}
-              className="btn btn-primary"
-            >
-              Add Expense
-            </button>
-          </div>
-        </form>
+        <ExpenseForm
+          data={formData}
+          onChange={setFormData}
+          onSubmit={handleSubmit}
+          onCancel={handleClose}
+          submitLabel="Add Expense"
+        />
       </div>
     </dialog>
   );
