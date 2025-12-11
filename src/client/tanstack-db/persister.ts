@@ -2,5 +2,5 @@ import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persist
 
 export const persister = createSyncStoragePersister({
   storage: typeof window !== "undefined" ? window.localStorage : undefined,
-  key: "todo-react-query-cache",
+  key: "medici-react-query-cache",
 });

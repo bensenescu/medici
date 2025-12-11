@@ -12,25 +12,36 @@
  */
 
 import type { Expense, Settlement, User } from "@/db/schema";
+import { CURRENCY_TOLERANCE } from "@/utils/formatters";
 
-// Types for balance calculations
+/**
+ * User fields needed for balance display.
+ */
+export type BalanceUser = Pick<
+  User,
+  "id" | "firstName" | "lastName" | "email" | "venmoHandle"
+>;
+
+/**
+ * Balance for a single pool member.
+ * Positive balance = owed money (creditor)
+ * Negative balance = owes money (debtor)
+ */
 export interface MemberBalance {
   userId: string;
-  user?: Pick<User, "id" | "firstName" | "lastName" | "email" | "venmoHandle">;
-  balance: number; // Positive = owed money (creditor), Negative = owes money (debtor)
+  user?: BalanceUser;
+  balance: number;
 }
 
+/**
+ * A simplified debt between two users.
+ * Represents a payment that should be made from one user to another.
+ */
 export interface SimplifiedDebt {
   fromUserId: string;
-  fromUser?: Pick<
-    User,
-    "id" | "firstName" | "lastName" | "email" | "venmoHandle"
-  >;
+  fromUser?: BalanceUser;
   toUserId: string;
-  toUser?: Pick<
-    User,
-    "id" | "firstName" | "lastName" | "email" | "venmoHandle"
-  >;
+  toUser?: BalanceUser;
   amount: number;
 }
 
@@ -60,10 +71,7 @@ export class BalanceService {
     expenses: Expense[],
     settlements: Settlement[],
     memberUserIds: string[],
-    usersMap?: Map<
-      string,
-      Pick<User, "id" | "firstName" | "lastName" | "email" | "venmoHandle">
-    >,
+    usersMap?: Map<string, BalanceUser>,
   ): PoolBalanceResult {
     const memberCount = memberUserIds.length;
 
@@ -137,10 +145,7 @@ export class BalanceService {
    */
   private static simplifyDebts(
     netBalances: Map<string, number>,
-    usersMap?: Map<
-      string,
-      Pick<User, "id" | "firstName" | "lastName" | "email" | "venmoHandle">
-    >,
+    usersMap?: Map<string, BalanceUser>,
   ): SimplifiedDebt[] {
     const debts: SimplifiedDebt[] = [];
 
@@ -149,7 +154,7 @@ export class BalanceService {
     for (const [userId, balance] of netBalances) {
       // Round to avoid floating point issues
       const rounded = Math.round(balance * 100) / 100;
-      if (Math.abs(rounded) > 0.01) {
+      if (Math.abs(rounded) > CURRENCY_TOLERANCE) {
         balances.set(userId, rounded);
       }
     }
@@ -182,7 +187,7 @@ export class BalanceService {
       // Transfer the minimum of what's owed
       const transferAmount = Math.min(maxCredit, maxDebt);
 
-      if (transferAmount > 0.01) {
+      if (transferAmount > CURRENCY_TOLERANCE) {
         debts.push({
           fromUserId: maxDebtor,
           fromUser: usersMap?.get(maxDebtor),
@@ -197,14 +202,14 @@ export class BalanceService {
       const newDebtorBalance = -maxDebt + transferAmount;
 
       // Remove or update creditor
-      if (Math.abs(newCreditorBalance) < 0.01) {
+      if (Math.abs(newCreditorBalance) < CURRENCY_TOLERANCE) {
         balances.delete(maxCreditor);
       } else {
         balances.set(maxCreditor, newCreditorBalance);
       }
 
       // Remove or update debtor
-      if (Math.abs(newDebtorBalance) < 0.01) {
+      if (Math.abs(newDebtorBalance) < CURRENCY_TOLERANCE) {
         balances.delete(maxDebtor);
       } else {
         balances.set(maxDebtor, newDebtorBalance);

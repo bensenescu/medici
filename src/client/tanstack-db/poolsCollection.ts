@@ -7,7 +7,7 @@ import {
   deletePool,
 } from "@/serverFunctions/pools";
 import { createCollection } from "@tanstack/react-db";
-import { lazyInitForWorkers } from "@/embedded-sdk/client";
+import { lazyInitForWorkers } from "@/embedded-sdk/client/lazyInitForWorkers";
 import type { Pool } from "@/types";
 
 export const poolsCollection = lazyInitForWorkers(() =>

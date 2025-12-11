@@ -1,9 +1,8 @@
-import { createFileRoute, useLocation } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useState } from "react";
-import { useIsMobile } from "@/client/hooks/use-mobile";
-import { TabBar } from "@/client/components/TabBar";
-import { friendsCollection, type FriendWithUser } from "@/client/tanstack-db";
+import { friendsCollection } from "@/client/tanstack-db";
+import { addFriend } from "@/serverFunctions/friends";
 import { UserPlus, Trash2, Users } from "lucide-react";
 
 export const Route = createFileRoute("/friends")({
@@ -11,8 +10,6 @@ export const Route = createFileRoute("/friends")({
 });
 
 function FriendsPage() {
-  const isMobile = useIsMobile();
-  const location = useLocation();
   const [showAddFriend, setShowAddFriend] = useState(false);
   const [newFriendEmail, setNewFriendEmail] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -42,19 +39,16 @@ function FriendsPage() {
     setError(null);
 
     try {
-      // Disable optimistic updates - wait for server to validate user exists
-      const tx = friendsCollection.insert(
-        {
-          id: "",
-          friendship: { id: "", userId: "", friendUserId: "", createdAt: "" },
-          user: {} as FriendWithUser["user"],
-          _pendingEmail: newFriendEmail.trim(),
-        },
-        { optimistic: false },
-      );
+      const result = await addFriend({
+        data: { email: newFriendEmail.trim() },
+      });
 
-      // Wait for the server to respond
-      await tx.isPersisted.promise;
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+
+      // Refetch the collection to get the new friend
+      await friendsCollection.utils.refetch();
 
       setNewFriendEmail("");
       setShowAddFriend(false);
@@ -229,12 +223,6 @@ function FriendsPage() {
           </form>
         </div>
       </dialog>
-
-      {isMobile && (
-        <div className="fixed bottom-0 left-0 right-0">
-          <TabBar currentPath={location.pathname} />
-        </div>
-      )}
     </>
   );
 }

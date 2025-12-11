@@ -1,9 +1,7 @@
-import { createFileRoute, Link, useLocation } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useLiveQuery } from "@tanstack/react-db";
 import { eq } from "@tanstack/db";
 import { useEffect, useMemo, useState } from "react";
-import { useIsMobile } from "@/client/hooks/use-mobile";
-import { TabBar } from "@/client/components/TabBar";
 import {
   poolsCollection,
   expensesCollection,
@@ -27,16 +25,19 @@ import {
   DollarSign,
   History,
 } from "lucide-react";
-import { categoryInfo, expenseCategories, type ExpenseCategory } from "@/types";
+import { categoryInfo, type ExpenseCategory } from "@/types";
 import { addMemberToPool } from "@/serverFunctions/pools";
 import { getCurrentUser } from "@/serverFunctions/poolMembers";
-import { updateExpense, deleteExpense } from "@/serverFunctions/expenses";
+
 import { createSettlement } from "@/client/actions/createSettlement";
-import { deleteSettlement } from "@/serverFunctions/settlements";
 import {
   BalanceService,
   type PoolBalanceResult,
-} from "@/services/BalanceService";
+  type MemberBalance,
+  type SimplifiedDebt,
+} from "@/server/services/BalanceService";
+import { getUserDisplayName, CURRENCY_TOLERANCE } from "@/utils/formatters";
+import { CategorySelect } from "@/client/components/pool/CategorySelect";
 
 export const Route = createFileRoute("/pools/$poolId")({
   component: PoolDetail,
@@ -59,8 +60,6 @@ type Expense = {
 
 function PoolDetail() {
   const { poolId } = Route.useParams();
-  const isMobile = useIsMobile();
-  const location = useLocation();
 
   // Modal states
   const [showAddExpense, setShowAddExpense] = useState(false);
@@ -217,11 +216,11 @@ function PoolDetail() {
 
   const handleAddExpense = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newExpense.name.trim() && newExpense.amount) {
+    if (newExpense.name.trim() && newExpense.amount && currentUserId) {
       expensesCollection.insert({
         id: crypto.randomUUID(),
         poolId,
-        paidByUserId: "user-1", // Current user (mock)
+        paidByUserId: currentUserId,
         name: newExpense.name.trim(),
         amount: parseFloat(newExpense.amount),
         description: null,
@@ -236,42 +235,25 @@ function PoolDetail() {
     }
   };
 
-  const handleEditExpense = async (e: React.FormEvent) => {
+  const handleEditExpense = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingExpense || !editForm.name.trim() || !editForm.amount) return;
 
-    try {
-      await updateExpense({
-        data: {
-          id: editingExpense.id,
-          name: editForm.name.trim(),
-          amount: parseFloat(editForm.amount),
-          category: editForm.category,
-        },
-      });
+    // Optimistic update - collection's onUpdate handles backend sync
+    expensesCollection.update(editingExpense.id, (draft) => {
+      draft.name = editForm.name.trim();
+      draft.amount = parseFloat(editForm.amount);
+      draft.category = editForm.category;
+      draft.updatedAt = new Date().toISOString();
+    });
 
-      // Update local collection
-      expensesCollection.update(editingExpense.id, (draft) => {
-        draft.name = editForm.name.trim();
-        draft.amount = parseFloat(editForm.amount);
-        draft.category = editForm.category;
-        draft.updatedAt = new Date().toISOString();
-      });
-
-      setShowEditExpense(false);
-      setEditingExpense(null);
-    } catch (error) {
-      console.error("Failed to update expense:", error);
-    }
+    setShowEditExpense(false);
+    setEditingExpense(null);
   };
 
-  const handleDeleteExpense = async (expenseId: string) => {
-    try {
-      await deleteExpense({ data: { id: expenseId } });
-      expensesCollection.delete([expenseId]);
-    } catch (error) {
-      console.error("Failed to delete expense:", error);
-    }
+  const handleDeleteExpense = (expenseId: string) => {
+    // Optimistic delete - collection's onDelete handles backend sync
+    expensesCollection.delete(expenseId);
   };
 
   const handleAddMember = async () => {
@@ -288,6 +270,11 @@ function PoolDetail() {
     } finally {
       setIsAddingMember(false);
     }
+  };
+
+  const handleRemoveMember = (memberId: string) => {
+    // Optimistic delete - collection's onDelete handles backend sync
+    poolMembersCollection.delete(memberId);
   };
 
   const openEditModal = (expense: Expense) => {
@@ -321,7 +308,7 @@ function PoolDetail() {
 
     // Check for amounts exceeding max
     const invalidPayment = paymentsToSubmit.find(
-      (p) => p.amount > p.maxAmount + 0.01,
+      (p) => p.amount > p.maxAmount + CURRENCY_TOLERANCE,
     );
     if (invalidPayment) {
       setPaymentError(
@@ -357,35 +344,14 @@ function PoolDetail() {
     }
   };
 
-  const handleDeleteSettlement = async (settlementId: string) => {
-    // Optimistic delete - UI updates immediately
+  const handleDeleteSettlement = (settlementId: string) => {
+    // Optimistic delete - collection's onDelete handles backend sync
     settlementsCollection.delete(settlementId);
-
-    try {
-      await deleteSettlement({ data: { settlementId } });
-    } catch (error) {
-      console.error("Failed to delete settlement:", error);
-      // Refetch to restore state on error
-      await settlementsCollection.utils.refetch();
-    }
   };
 
   // Calculate totals
   const totalExpenses = allExpenses?.reduce((sum, e) => sum + e.amount, 0) ?? 0;
   const unsettledCount = allExpenses?.filter((e) => !e.isSettled).length ?? 0;
-
-  // Helper to display user name
-  const getUserDisplayName = (user?: {
-    firstName?: string | null;
-    lastName?: string | null;
-    email: string;
-  }) => {
-    if (!user) return "Unknown";
-    if (user.firstName || user.lastName) {
-      return [user.firstName, user.lastName].filter(Boolean).join(" ");
-    }
-    return user.email.split("@")[0];
-  };
 
   // Return null until all data is fully loaded to prevent layout shift
   if (!balances || currentUserId === null) {
@@ -433,8 +399,9 @@ function PoolDetail() {
         </div>
 
         {/* Balances Section */}
-        {balances.memberBalances.some((b) => Math.abs(b.balance) > 0.01) ||
-        balances.simplifiedDebts.length > 0 ? (
+        {balances.memberBalances.some(
+          (b: MemberBalance) => Math.abs(b.balance) > CURRENCY_TOLERANCE,
+        ) || balances.simplifiedDebts.length > 0 ? (
           <div className="card bg-base-100 shadow mb-6">
             <div className="card-body">
               <div className="flex items-center justify-between">
@@ -463,8 +430,11 @@ function PoolDetail() {
               {/* Member Balances */}
               <div className="space-y-2 mt-4">
                 {balances.memberBalances
-                  .filter((b) => Math.abs(b.balance) > 0.01)
-                  .map((balance) => (
+                  .filter(
+                    (b: MemberBalance) =>
+                      Math.abs(b.balance) > CURRENCY_TOLERANCE,
+                  )
+                  .map((balance: MemberBalance) => (
                     <div
                       key={balance.userId}
                       className="flex items-center justify-between"
@@ -493,17 +463,15 @@ function PoolDetail() {
               {balances.simplifiedDebts.length > 0 &&
                 (() => {
                   const yourDebts = balances.simplifiedDebts.filter(
-                    (debt) =>
-                      currentUserId && debt.fromUserId === currentUserId,
+                    (debt: SimplifiedDebt) => debt.fromUserId === currentUserId,
                   );
                   const debtsOwedToYou = balances.simplifiedDebts.filter(
-                    (debt) => currentUserId && debt.toUserId === currentUserId,
+                    (debt: SimplifiedDebt) => debt.toUserId === currentUserId,
                   );
                   const otherDebts = balances.simplifiedDebts.filter(
-                    (debt) =>
-                      !currentUserId ||
-                      (debt.fromUserId !== currentUserId &&
-                        debt.toUserId !== currentUserId),
+                    (debt: SimplifiedDebt) =>
+                      debt.fromUserId !== currentUserId &&
+                      debt.toUserId !== currentUserId,
                   );
 
                   return (
@@ -519,7 +487,7 @@ function PoolDetail() {
                               <button
                                 onClick={() => {
                                   setSelectedDebts(
-                                    yourDebts.map((debt) => ({
+                                    yourDebts.map((debt: SimplifiedDebt) => ({
                                       toUserId: debt.toUserId,
                                       toUserName: getUserDisplayName(
                                         debt.toUser,
@@ -542,40 +510,44 @@ function PoolDetail() {
                             )}
                           </div>
                           <div className="divide-y divide-base-300">
-                            {yourDebts.map((debt, index) => (
-                              <div
-                                key={`owe-${index}`}
-                                className="flex items-center gap-2 text-sm py-3"
-                              >
-                                <span className="font-medium">You</span>
-                                <ArrowRight className="hidden md:block h-4 w-4 text-base-content/40" />
-                                <span className="hidden md:block font-medium flex-1">
-                                  {getUserDisplayName(debt.toUser)}
-                                </span>
-                                <span className="flex-1 md:hidden" />
-                                <span className="font-bold tabular-nums">
-                                  ${debt.amount.toFixed(2)}
-                                </span>
-                              </div>
-                            ))}
-                            {debtsOwedToYou.map((debt, index) => (
-                              <div
-                                key={`owed-${index}`}
-                                className="flex items-center gap-2 text-sm py-3"
-                              >
-                                <span className="font-medium">
-                                  {getUserDisplayName(debt.fromUser)}
-                                </span>
-                                <ArrowRight className="hidden md:block h-4 w-4 text-base-content/40" />
-                                <span className="hidden md:block font-medium">
-                                  You
-                                </span>
-                                <span className="flex-1" />
-                                <span className="font-bold tabular-nums text-success">
-                                  ${debt.amount.toFixed(2)}
-                                </span>
-                              </div>
-                            ))}
+                            {yourDebts.map(
+                              (debt: SimplifiedDebt, index: number) => (
+                                <div
+                                  key={`owe-${index}`}
+                                  className="flex items-center gap-2 text-sm py-3"
+                                >
+                                  <span className="font-medium">You</span>
+                                  <ArrowRight className="hidden md:block h-4 w-4 text-base-content/40" />
+                                  <span className="hidden md:block font-medium flex-1">
+                                    {getUserDisplayName(debt.toUser)}
+                                  </span>
+                                  <span className="flex-1 md:hidden" />
+                                  <span className="font-bold tabular-nums">
+                                    ${debt.amount.toFixed(2)}
+                                  </span>
+                                </div>
+                              ),
+                            )}
+                            {debtsOwedToYou.map(
+                              (debt: SimplifiedDebt, index: number) => (
+                                <div
+                                  key={`owed-${index}`}
+                                  className="flex items-center gap-2 text-sm py-3"
+                                >
+                                  <span className="font-medium">
+                                    {getUserDisplayName(debt.fromUser)}
+                                  </span>
+                                  <ArrowRight className="hidden md:block h-4 w-4 text-base-content/40" />
+                                  <span className="hidden md:block font-medium">
+                                    You
+                                  </span>
+                                  <span className="flex-1" />
+                                  <span className="font-bold tabular-nums text-success">
+                                    ${debt.amount.toFixed(2)}
+                                  </span>
+                                </div>
+                              ),
+                            )}
                           </div>
                         </div>
                       )}
@@ -587,23 +559,25 @@ function PoolDetail() {
                             Other settlements
                           </h4>
                           <div className="divide-y divide-base-300">
-                            {otherDebts.map((debt, index) => (
-                              <div
-                                key={index}
-                                className="flex items-center gap-2 text-sm py-3"
-                              >
-                                <span className="font-medium">
-                                  {getUserDisplayName(debt.fromUser)}
-                                </span>
-                                <ArrowRight className="h-4 w-4 text-base-content/40" />
-                                <span className="font-medium flex-1">
-                                  {getUserDisplayName(debt.toUser)}
-                                </span>
-                                <span className="font-bold tabular-nums">
-                                  ${debt.amount.toFixed(2)}
-                                </span>
-                              </div>
-                            ))}
+                            {otherDebts.map(
+                              (debt: SimplifiedDebt, index: number) => (
+                                <div
+                                  key={index}
+                                  className="flex items-center gap-2 text-sm py-3"
+                                >
+                                  <span className="font-medium">
+                                    {getUserDisplayName(debt.fromUser)}
+                                  </span>
+                                  <ArrowRight className="h-4 w-4 text-base-content/40" />
+                                  <span className="font-medium flex-1">
+                                    {getUserDisplayName(debt.toUser)}
+                                  </span>
+                                  <span className="font-bold tabular-nums">
+                                    ${debt.amount.toFixed(2)}
+                                  </span>
+                                </div>
+                              ),
+                            )}
                           </div>
                         </div>
                       )}
@@ -662,14 +636,12 @@ function PoolDetail() {
                   const toMember = poolMembers?.find(
                     (m) => m.userId === settlement.toUserId,
                   );
-                  const isLoaded =
-                    currentUserId && poolMembers && settlement.createdByUserId;
+                  const isLoaded = poolMembers && settlement.createdByUserId;
                   const canDelete =
-                    currentUserId &&
-                    (settlement.createdByUserId === currentUserId ||
-                      poolMembers?.find(
-                        (m) => m.userId === currentUserId && m.role === "ADMIN",
-                      ));
+                    settlement.createdByUserId === currentUserId ||
+                    poolMembers?.find(
+                      (m) => m.userId === currentUserId && m.role === "ADMIN",
+                    );
 
                   return (
                     <div
@@ -886,22 +858,12 @@ function PoolDetail() {
               <label className="label">
                 <span className="label-text font-medium">Category</span>
               </label>
-              <select
+              <CategorySelect
                 value={newExpense.category}
-                onChange={(e) =>
-                  setNewExpense({
-                    ...newExpense,
-                    category: e.target.value as ExpenseCategory,
-                  })
+                onChange={(category) =>
+                  setNewExpense({ ...newExpense, category })
                 }
-                className="select select-bordered w-full"
-              >
-                {expenseCategories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {categoryInfo[cat].label}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             <div className="modal-action pt-2">
@@ -972,22 +934,10 @@ function PoolDetail() {
               <label className="label">
                 <span className="label-text font-medium">Category</span>
               </label>
-              <select
+              <CategorySelect
                 value={editForm.category}
-                onChange={(e) =>
-                  setEditForm({
-                    ...editForm,
-                    category: e.target.value as ExpenseCategory,
-                  })
-                }
-                className="select select-bordered w-full"
-              >
-                {expenseCategories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {categoryInfo[cat].label}
-                  </option>
-                ))}
-              </select>
+                onChange={(category) => setEditForm({ ...editForm, category })}
+              />
             </div>
 
             <div className="modal-action pt-2">
@@ -1224,26 +1174,46 @@ function PoolDetail() {
               Members ({poolMembers?.length ?? 0})
             </h4>
             <div className="space-y-2">
-              {poolMembers?.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center justify-between bg-base-200 rounded-lg p-3"
-                >
-                  <div>
-                    <p className="font-medium">
-                      {getUserDisplayName(member.user)}
-                    </p>
-                    <p className="text-sm text-base-content/60">
-                      {member.user.email}
-                    </p>
-                  </div>
-                  <span
-                    className={`badge ${member.role === "ADMIN" ? "badge-primary" : "badge-ghost"}`}
+              {poolMembers?.map((member) => {
+                const isCurrentUser = member.user.id === currentUserId;
+
+                return (
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between bg-base-200 rounded-lg p-3"
                   >
-                    {member.role}
-                  </span>
-                </div>
-              ))}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">
+                        {getUserDisplayName(member.user)}
+                        {isCurrentUser && (
+                          <span className="text-base-content/50 ml-1">
+                            (you)
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-sm text-base-content/60 truncate">
+                        {member.user.email}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 ml-2">
+                      <span
+                        className={`badge ${member.role === "ADMIN" ? "badge-primary" : "badge-ghost"}`}
+                      >
+                        {member.role}
+                      </span>
+                      {!isCurrentUser && (
+                        <button
+                          onClick={() => handleRemoveMember(member.id)}
+                          className="btn btn-ghost btn-sm btn-square text-base-content/40 hover:text-error"
+                          title="Remove member"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -1254,12 +1224,6 @@ function PoolDetail() {
           </div>
         </div>
       </dialog>
-
-      {isMobile && (
-        <div className="fixed bottom-0 left-0 right-0">
-          <TabBar currentPath={location.pathname} />
-        </div>
-      )}
     </>
   );
 }

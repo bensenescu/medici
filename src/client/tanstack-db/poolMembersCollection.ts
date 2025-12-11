@@ -4,8 +4,9 @@ import {
   getAllPoolMembers,
   type PoolMemberWithUser,
 } from "@/serverFunctions/poolMembers";
+import { removeMemberFromPool } from "@/serverFunctions/pools";
 import { createCollection } from "@tanstack/react-db";
-import { lazyInitForWorkers } from "@/embedded-sdk/client";
+import { lazyInitForWorkers } from "@/embedded-sdk/client/lazyInitForWorkers";
 
 export type { PoolMemberWithUser };
 
@@ -19,9 +20,12 @@ export const poolMembersCollection = lazyInitForWorkers(() =>
       },
       queryClient,
       getKey: (item) => item.id,
-      // Pool members are managed through pool operations, so we don't need
-      // individual CRUD handlers here - the collection will be refreshed
-      // when pool membership changes
+      onDelete: async ({ transaction }) => {
+        const { original } = transaction.mutations[0];
+        await removeMemberFromPool({
+          data: { poolId: original.poolId, memberId: original.id },
+        });
+      },
     }),
   ),
 );

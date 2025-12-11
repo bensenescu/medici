@@ -7,7 +7,7 @@ import {
   deleteExpense,
 } from "@/serverFunctions/expenses";
 import { createCollection } from "@tanstack/react-db";
-import { lazyInitForWorkers } from "@/embedded-sdk/client";
+import { lazyInitForWorkers } from "@/embedded-sdk/client/lazyInitForWorkers";
 import type { Expense } from "@/types";
 
 export const expensesCollection = lazyInitForWorkers(() =>
