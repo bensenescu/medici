@@ -9,8 +9,10 @@ import {
   SettlementRepository,
   PoolMembershipRepository,
   ExpenseRepository,
+  verifyPoolMembership,
 } from "@/server/repositories";
 import { BalanceService } from "./BalanceService";
+import type { Expense } from "@/db/schema";
 
 export interface CreateSettlementInput {
   poolId: string;
@@ -21,19 +23,13 @@ export interface CreateSettlementInput {
 
 export class SettlementService {
   /**
-   * Create a settlement (record payment).
-   * Verifies user is a member and validates amount against debt.
+   * Validate a settlement request before creating it.
    */
-  static async createSettlement(userId: string, input: CreateSettlementInput) {
-    // Verify user is a member of the pool
-    const membership = await PoolMembershipRepository.findByPoolAndUser(
-      input.poolId,
-      userId,
-    );
-
-    if (!membership) {
-      throw new Error("Not a member of this pool");
-    }
+  private static async validateSettlementRequest(
+    userId: string,
+    input: CreateSettlementInput,
+  ) {
+    await verifyPoolMembership(userId, input.poolId);
 
     // Verify recipient is also a member
     const recipientMembership =
@@ -41,15 +37,73 @@ export class SettlementService {
         input.poolId,
         input.toUserId,
       );
-
     if (!recipientMembership) {
       throw new Error("Recipient is not a member of this pool");
     }
 
-    // Cannot pay yourself
     if (userId === input.toUserId) {
       throw new Error("Cannot record a payment to yourself");
     }
+  }
+
+  /**
+   * Validate that the settlement amount doesn't exceed the debt.
+   */
+  private static validateSettlementAmount(
+    userId: string,
+    toUserId: string,
+    amount: number,
+    balanceResult: ReturnType<typeof BalanceService.computePoolBalances>,
+  ) {
+    const userDebtToRecipient = balanceResult.simplifiedDebts.find(
+      (d) => d.fromUserId === userId && d.toUserId === toUserId,
+    );
+
+    const maxAmount = userDebtToRecipient?.amount ?? 0;
+
+    if (amount > maxAmount + CURRENCY_TOLERANCE) {
+      throw new Error(
+        `Amount exceeds what you owe. Maximum: $${maxAmount.toFixed(2)}`,
+      );
+    }
+  }
+
+  /**
+   * Check if pool is fully settled and clean up if so.
+   */
+  private static async checkAndFinalizePoolSettlement(
+    poolId: string,
+    memberUserIds: string[],
+    poolExpenses: Expense[],
+    now: string,
+  ): Promise<boolean> {
+    const updatedSettlements = await SettlementRepository.findAllByPool(poolId);
+
+    const updatedBalances = BalanceService.computePoolBalances(
+      poolExpenses,
+      updatedSettlements,
+      memberUserIds,
+    );
+
+    const allSettled = updatedBalances.memberBalances.every(
+      (b) => Math.abs(b.balance) < CURRENCY_TOLERANCE,
+    );
+
+    if (allSettled && poolExpenses.some((e) => !e.isSettled)) {
+      await ExpenseRepository.settleAllByPool(poolId, now);
+      await SettlementRepository.deleteAllByPool(poolId);
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Create a settlement (record payment).
+   * Verifies user is a member and validates amount against debt.
+   */
+  static async createSettlement(userId: string, input: CreateSettlementInput) {
+    await this.validateSettlementRequest(userId, input);
 
     // Get current balances to validate amount
     const allMemberships = await PoolMembershipRepository.findAllByPool(
@@ -67,23 +121,16 @@ export class SettlementService {
       memberUserIds,
     );
 
-    // Find the debt from current user to recipient
-    const userDebtToRecipient = balanceResult.simplifiedDebts.find(
-      (d) => d.fromUserId === userId && d.toUserId === input.toUserId,
+    this.validateSettlementAmount(
+      userId,
+      input.toUserId,
+      input.amount,
+      balanceResult,
     );
-
-    const maxAmount = userDebtToRecipient?.amount ?? 0;
-
-    if (input.amount > maxAmount + CURRENCY_TOLERANCE) {
-      throw new Error(
-        `Amount exceeds what you owe. Maximum: $${maxAmount.toFixed(2)}`,
-      );
-    }
 
     const now = new Date().toISOString();
     const settlementId = crypto.randomUUID();
 
-    // Create the settlement
     await SettlementRepository.create({
       id: settlementId,
       poolId: input.poolId,
@@ -95,32 +142,14 @@ export class SettlementService {
       createdByUserId: userId,
     });
 
-    // Check if pool is now fully settled
-    const updatedSettlements = await SettlementRepository.findAllByPool(
+    const poolSettled = await this.checkAndFinalizePoolSettlement(
       input.poolId,
-    );
-
-    const updatedBalances = BalanceService.computePoolBalances(
-      poolExpenses,
-      updatedSettlements,
       memberUserIds,
+      poolExpenses,
+      now,
     );
 
-    const allSettled = updatedBalances.memberBalances.every(
-      (b) => Math.abs(b.balance) < CURRENCY_TOLERANCE,
-    );
-
-    if (allSettled && poolExpenses.some((e) => !e.isSettled)) {
-      // Mark all expenses as settled
-      await ExpenseRepository.settleAllByPool(input.poolId, now);
-
-      // Delete settlements since expenses are now settled
-      await SettlementRepository.deleteAllByPool(input.poolId);
-
-      return { success: true, settlementId, poolSettled: true };
-    }
-
-    return { success: true, settlementId, poolSettled: false };
+    return { success: true, settlementId, poolSettled };
   }
 
   /**
@@ -141,15 +170,7 @@ export class SettlementService {
    * Verifies user is a member.
    */
   static async getPoolSettlements(userId: string, poolId: string) {
-    const membership = await PoolMembershipRepository.findByPoolAndUser(
-      poolId,
-      userId,
-    );
-
-    if (!membership) {
-      throw new Error("Not a member of this pool");
-    }
-
+    await verifyPoolMembership(userId, poolId);
     return SettlementRepository.findAllByPoolWithUsers(poolId);
   }
 
@@ -159,19 +180,11 @@ export class SettlementService {
    */
   static async deleteSettlement(userId: string, settlementId: string) {
     const settlement = await SettlementRepository.findById(settlementId);
-
     if (!settlement) {
       throw new Error("Settlement not found");
     }
 
-    const membership = await PoolMembershipRepository.findByPoolAndUser(
-      settlement.poolId,
-      userId,
-    );
-
-    if (!membership) {
-      throw new Error("Not a member of this pool");
-    }
+    const membership = await verifyPoolMembership(userId, settlement.poolId);
 
     const canDelete =
       settlement.createdByUserId === userId || membership.role === "ADMIN";

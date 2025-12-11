@@ -62,7 +62,7 @@ function FriendsPage() {
   };
 
   const handleRemoveFriend = (friendshipId: string) => {
-    friendsCollection.delete([friendshipId]);
+    friendsCollection.delete(friendshipId);
   };
 
   if (isLoading) {

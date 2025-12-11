@@ -7,7 +7,8 @@ import { createSettlement as createSettlementServer } from "@/serverFunctions/se
 
 type CreateSettlementParams = {
   poolId: string;
-  fromUserId: string;
+  /** Used only for optimistic UI updates. The server uses the authenticated user's ID. */
+  optimisticFromUserId: string;
   toUserId: string;
   amount: number;
   note?: string;
@@ -20,7 +21,7 @@ type CreateSettlementParams = {
  * and settlements are cleared.
  */
 export const createSettlement = createOptimisticAction<CreateSettlementParams>({
-  onMutate: ({ poolId, fromUserId, toUserId, amount, note }) => {
+  onMutate: ({ poolId, optimisticFromUserId, toUserId, amount, note }) => {
     const now = new Date().toISOString();
     const settlementId = crypto.randomUUID();
 
@@ -28,12 +29,12 @@ export const createSettlement = createOptimisticAction<CreateSettlementParams>({
     settlementsCollection.insert({
       id: settlementId,
       poolId,
-      fromUserId,
+      fromUserId: optimisticFromUserId,
       toUserId,
       amount,
       note: note || null,
       createdAt: now,
-      createdByUserId: fromUserId,
+      createdByUserId: optimisticFromUserId,
     });
   },
   mutationFn: async ({ poolId, toUserId, amount, note }) => {

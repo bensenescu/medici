@@ -36,9 +36,13 @@ export function BalancesCard({
   const hasNonZeroBalances = balances.memberBalances.some(
     (b: MemberBalance) => Math.abs(b.balance) > CURRENCY_TOLERANCE,
   );
+  const hasExpenses = totalExpenses > 0;
 
-  // All settled up state
-  if (!hasNonZeroBalances && balances.simplifiedDebts.length === 0) {
+  // All settled up state - only show if there are actually expenses to settle
+  const isAllSettledUp =
+    hasExpenses && !hasNonZeroBalances && balances.simplifiedDebts.length === 0;
+
+  if (isAllSettledUp) {
     return (
       <div className="card bg-base-100 shadow mb-6">
         <div className="card-body">
@@ -67,6 +71,35 @@ export function BalancesCard({
             <CheckCircle className="h-5 w-5" />
             <span>All settled up!</span>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Empty state - no expenses yet
+  if (!hasExpenses) {
+    return (
+      <div className="card bg-base-100 shadow mb-6">
+        <div className="card-body">
+          <div className="flex items-center justify-between">
+            <h3 className="card-title text-lg">Balances</h3>
+            <button
+              onClick={onAddMember}
+              className="btn btn-ghost btn-sm btn-square"
+              title="Add member"
+            >
+              <UserPlus className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Compact Stats Summary */}
+          <div className="flex items-center gap-2 text-sm text-base-content/60">
+            <span>{memberCount} members</span>
+          </div>
+
+          <p className="text-base-content/50 text-sm mt-4">
+            Add your first expense to start tracking balances.
+          </p>
         </div>
       </div>
     );

@@ -6,7 +6,7 @@
 
 import { db } from "@/db";
 import { expenseCategoryRules, type NewExpenseCategoryRule } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 export class ExpenseCategoryRuleRepository {
   /**
@@ -37,10 +37,16 @@ export class ExpenseCategoryRuleRepository {
 
   /**
    * Delete a rule by ID.
+   * Includes userId in WHERE clause for defense-in-depth.
    */
-  static async delete(ruleId: string) {
+  static async delete(ruleId: string, userId: string) {
     await db
       .delete(expenseCategoryRules)
-      .where(eq(expenseCategoryRules.id, ruleId));
+      .where(
+        and(
+          eq(expenseCategoryRules.id, ruleId),
+          eq(expenseCategoryRules.userId, userId),
+        ),
+      );
   }
 }

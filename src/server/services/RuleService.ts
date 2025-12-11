@@ -60,7 +60,7 @@ export class RuleService {
       throw new Error("Not authorized to delete this rule");
     }
 
-    await ExpenseCategoryRuleRepository.delete(ruleId);
+    await ExpenseCategoryRuleRepository.delete(ruleId, userId);
 
     return { success: true };
   }

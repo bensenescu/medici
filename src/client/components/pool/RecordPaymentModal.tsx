@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DollarSign } from "lucide-react";
 import { CURRENCY_TOLERANCE } from "@/utils/formatters";
 import type { SelectedDebt } from "./types";
@@ -25,13 +25,13 @@ export function RecordPaymentModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Sync debts when modal opens with new initialDebts
-  useState(() => {
+  useEffect(() => {
     if (isOpen) {
       setDebts(initialDebts);
       setNote("");
       setError(null);
     }
-  });
+  }, [isOpen, initialDebts]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

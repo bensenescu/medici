@@ -6,7 +6,34 @@
 
 import { db } from "@/db";
 import { poolMemberships, type NewPoolMembership } from "@/db/schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
+
+/**
+ * Verify that a user is a member of a pool.
+ * Throws if not a member.
+ */
+export async function verifyPoolMembership(userId: string, poolId: string) {
+  const membership = await PoolMembershipRepository.findByPoolAndUser(
+    poolId,
+    userId,
+  );
+  if (!membership) {
+    throw new Error("Not a member of this pool");
+  }
+  return membership;
+}
+
+/**
+ * Verify that a user is an admin of a pool.
+ * Throws if not a member or not an admin.
+ */
+export async function verifyPoolAdmin(userId: string, poolId: string) {
+  const membership = await verifyPoolMembership(userId, poolId);
+  if (membership.role !== "ADMIN") {
+    throw new Error("Must be pool admin");
+  }
+  return membership;
+}
 
 export class PoolMembershipRepository {
   /**
@@ -90,13 +117,16 @@ export class PoolMembershipRepository {
    * Count admins in a pool.
    */
   static async countAdminsByPool(poolId: string) {
-    const admins = await db.query.poolMemberships.findMany({
-      where: and(
-        eq(poolMemberships.poolId, poolId),
-        eq(poolMemberships.role, "ADMIN"),
-      ),
-    });
-    return admins.length;
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(poolMemberships)
+      .where(
+        and(
+          eq(poolMemberships.poolId, poolId),
+          eq(poolMemberships.role, "ADMIN"),
+        ),
+      );
+    return result[0]?.count ?? 0;
   }
 
   /**
