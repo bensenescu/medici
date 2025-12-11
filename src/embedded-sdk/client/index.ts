@@ -1,6 +1,6 @@
-export { SessionManager } from "./session-manager";
+export { SessionManager, type SessionUser } from "./session-manager";
 export { useSessionTokenClientMiddleware } from "./useSessionTokenClientMiddleware";
 
-export { EmbeddedAppProvider } from "./EmbeddedAppProvider";
+export { EmbeddedAppProvider, useCurrentUser } from "./EmbeddedAppProvider";
 
 export { lazyInitForWorkers } from "./lazyInitForWorkers";

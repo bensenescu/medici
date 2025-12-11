@@ -3,6 +3,11 @@ interface SessionToken {
   expiresAt: number;
 }
 
+export interface SessionUser {
+  userId: string;
+  email: string;
+}
+
 export interface SessionManagerConfig {
   appId: string;
   debug?: boolean;
@@ -236,6 +241,42 @@ export class SessionManager {
     }
 
     return { status: "VALID", token: this.token.token };
+  }
+
+  /**
+   * Decodes the JWT payload to extract user information.
+   * Note: This does not verify the token - verification happens server-side.
+   * Returns null if no valid token exists.
+   */
+  getUser(): SessionUser | null {
+    if (!this.token || this.isTokenExpired()) {
+      return null;
+    }
+
+    try {
+      // JWT format: header.payload.signature
+      const parts = this.token.token.split(".");
+      if (parts.length !== 3) {
+        this.log("Invalid JWT format - expected 3 parts");
+        return null;
+      }
+
+      // Decode the payload (second part)
+      const payload = JSON.parse(atob(parts[1]));
+
+      if (!payload.sub || !payload.email) {
+        this.log("JWT payload missing required fields", { payload });
+        return null;
+      }
+
+      return {
+        userId: payload.sub,
+        email: payload.email,
+      };
+    } catch (error) {
+      this.log("Failed to decode JWT payload", error);
+      return null;
+    }
   }
 
   onDebugEvent(callback: () => void): () => void {
