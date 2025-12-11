@@ -49,13 +49,6 @@ export const createExpense = createServerFn({ method: "POST" })
         category: z.enum(expenseCategories).default("miscellaneous"),
         description: z.string().nullable().optional(),
         notes: z.string().nullable().optional(),
-        lineItems: z.array(
-          z.object({
-            id: z.string(),
-            debtorUserId: z.string(),
-            amount: z.number(),
-          }),
-        ),
       })
       .parse(data),
   )
@@ -68,7 +61,6 @@ export const createExpense = createServerFn({ method: "POST" })
       category: data.category,
       description: data.description,
       notes: data.notes,
-      lineItems: data.lineItems,
     });
     return { expense };
   });
@@ -88,15 +80,6 @@ export const updateExpense = createServerFn({ method: "POST" })
         category: z.enum(expenseCategories).optional(),
         description: z.string().optional().nullable(),
         notes: z.string().optional().nullable(),
-        lineItems: z
-          .array(
-            z.object({
-              id: z.string(),
-              debtorUserId: z.string(),
-              amount: z.number(),
-            }),
-          )
-          .optional(),
       })
       .parse(data),
   )

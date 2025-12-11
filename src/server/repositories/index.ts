@@ -7,7 +7,6 @@ export { UserRepository } from "./UserRepository";
 export { PoolRepository } from "./PoolRepository";
 export { PoolMembershipRepository } from "./PoolMembershipRepository";
 export { ExpenseRepository } from "./ExpenseRepository";
-export { ExpenseLineItemRepository } from "./ExpenseLineItemRepository";
 export { FriendshipRepository } from "./FriendshipRepository";
 export { SettlementRepository } from "./SettlementRepository";
 export { ExpenseCategoryRuleRepository } from "./ExpenseCategoryRuleRepository";

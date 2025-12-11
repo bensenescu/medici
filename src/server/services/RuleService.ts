@@ -64,23 +64,4 @@ export class RuleService {
 
     return { success: true };
   }
-
-  /**
-   * Suggest a category based on expense name and user's rules.
-   */
-  static async suggestCategory(
-    userId: string,
-    expenseName: string,
-  ): Promise<ExpenseCategory | null> {
-    const rules = await ExpenseCategoryRuleRepository.findAllByUser(userId);
-    const expenseNameLower = expenseName.toLowerCase();
-
-    for (const rule of rules) {
-      if (expenseNameLower.includes(rule.rule)) {
-        return rule.category;
-      }
-    }
-
-    return null;
-  }
 }
