@@ -139,28 +139,6 @@ export const expenses = sqliteTable(
   ],
 );
 
-// Expense line items - who owes what for each expense
-export const expenseLineItems = sqliteTable(
-  "expense_line_items",
-  {
-    id: text("id").primaryKey(),
-    expenseId: text("expense_id")
-      .notNull()
-      .references(() => expenses.id, { onDelete: "cascade" }),
-    debtorUserId: text("debtor_user_id")
-      .notNull()
-      .references(() => users.id),
-    amount: real("amount").notNull(),
-    isSettled: integer("is_settled", { mode: "boolean" })
-      .notNull()
-      .default(false),
-  },
-  (table) => [
-    index("line_items_expense_idx").on(table.expenseId),
-    index("line_items_debtor_idx").on(table.debtorUserId),
-  ],
-);
-
 // Friendships table - friend connections between users
 export const friendships = sqliteTable(
   "friendships",
@@ -236,7 +214,6 @@ export const settlements = sqliteTable(
 export const usersRelations = relations(users, ({ many }) => ({
   poolMemberships: many(poolMemberships),
   paidExpenses: many(expenses),
-  expenseDebts: many(expenseLineItems),
   friendshipsOwned: many(friendships, { relationName: "friendshipsOwned" }),
   friendshipsReceived: many(friendships, {
     relationName: "friendshipsReceived",
@@ -269,28 +246,13 @@ export const poolMembershipsRelations = relations(
   }),
 );
 
-export const expensesRelations = relations(expenses, ({ one, many }) => ({
+export const expensesRelations = relations(expenses, ({ one }) => ({
   pool: one(pools, { fields: [expenses.poolId], references: [pools.id] }),
   paidBy: one(users, {
     fields: [expenses.paidByUserId],
     references: [users.id],
   }),
-  lineItems: many(expenseLineItems),
 }));
-
-export const expenseLineItemsRelations = relations(
-  expenseLineItems,
-  ({ one }) => ({
-    expense: one(expenses, {
-      fields: [expenseLineItems.expenseId],
-      references: [expenses.id],
-    }),
-    debtor: one(users, {
-      fields: [expenseLineItems.debtorUserId],
-      references: [users.id],
-    }),
-  }),
-);
 
 export const friendshipsRelations = relations(friendships, ({ one }) => ({
   user: one(users, {
@@ -352,9 +314,6 @@ export type NewPoolMembership = typeof poolMemberships.$inferInsert;
 
 export type Expense = typeof expenses.$inferSelect;
 export type NewExpense = typeof expenses.$inferInsert;
-
-export type ExpenseLineItem = typeof expenseLineItems.$inferSelect;
-export type NewExpenseLineItem = typeof expenseLineItems.$inferInsert;
 
 export type Friendship = typeof friendships.$inferSelect;
 export type NewFriendship = typeof friendships.$inferInsert;

@@ -46,21 +46,3 @@ export const deleteRule = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     return RuleService.deleteRule(context.userId, data.id);
   });
-
-// ============================================================================
-// APPLY RULES TO EXPENSE NAME
-// Returns the suggested category based on user's rules
-// ============================================================================
-
-export const suggestCategory = createServerFn()
-  .middleware([useSessionTokenClientMiddleware, ensureUserMiddleware])
-  .inputValidator((data: unknown) =>
-    z.object({ expenseName: z.string() }).parse(data),
-  )
-  .handler(async ({ data, context }) => {
-    const category = await RuleService.suggestCategory(
-      context.userId,
-      data.expenseName,
-    );
-    return { category };
-  });

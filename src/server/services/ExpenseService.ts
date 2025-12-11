@@ -2,13 +2,14 @@
  * Expense Service - Business logic for expenses.
  * Verifies ownership BEFORE mutations.
  * Receives userId as first parameter for all operations.
+ *
+ * Note: Balances are computed using equal splits among all pool members.
+ * This is handled by BalanceService, not stored in the database.
  */
 
 import type { ExpenseCategory } from "@/db/schema";
-import { CURRENCY_TOLERANCE } from "@/utils/formatters";
 import {
   ExpenseRepository,
-  ExpenseLineItemRepository,
   PoolMembershipRepository,
   ExpenseCategoryRuleRepository,
 } from "@/server/repositories";
@@ -21,11 +22,6 @@ export interface CreateExpenseInput {
   category: ExpenseCategory;
   description?: string | null;
   notes?: string | null;
-  lineItems: Array<{
-    id: string;
-    debtorUserId: string;
-    amount: number;
-  }>;
 }
 
 export interface UpdateExpenseInput {
@@ -35,11 +31,6 @@ export interface UpdateExpenseInput {
   category?: ExpenseCategory;
   description?: string | null;
   notes?: string | null;
-  lineItems?: Array<{
-    id: string;
-    debtorUserId: string;
-    amount: number;
-  }>;
 }
 
 export class ExpenseService {
@@ -78,13 +69,13 @@ export class ExpenseService {
    * Verifies user is a member and applies auto-categorization rules.
    */
   static async createExpense(userId: string, input: CreateExpenseInput) {
-    // Verify user is a member and get all pool members
-    const allMemberships = await PoolMembershipRepository.findAllByPool(
+    // Verify user is a member of the pool
+    const membership = await PoolMembershipRepository.findByPoolAndUser(
       input.poolId,
+      userId,
     );
 
-    const userMembership = allMemberships.find((m) => m.userId === userId);
-    if (!userMembership) {
+    if (!membership) {
       throw new Error("Not a member of this pool");
     }
 
@@ -103,25 +94,6 @@ export class ExpenseService {
       }
     }
 
-    // If no line items provided, auto-generate equal split among all members
-    let lineItems = input.lineItems;
-    if (lineItems.length === 0) {
-      const splitAmount = input.amount / allMemberships.length;
-      lineItems = allMemberships.map((m) => ({
-        id: crypto.randomUUID(),
-        debtorUserId: m.userId,
-        amount: splitAmount,
-      }));
-    }
-
-    // Validate line items sum to expense amount
-    const lineItemTotal = lineItems.reduce((sum, li) => sum + li.amount, 0);
-    if (Math.abs(lineItemTotal - input.amount) > CURRENCY_TOLERANCE) {
-      throw new Error(
-        `Line items total (${lineItemTotal.toFixed(2)}) must equal expense amount (${input.amount.toFixed(2)})`,
-      );
-    }
-
     const now = new Date().toISOString();
 
     // Create expense
@@ -138,17 +110,6 @@ export class ExpenseService {
       createdAt: now,
       updatedAt: now,
     });
-
-    // Create line items
-    await ExpenseLineItemRepository.createMany(
-      lineItems.map((li) => ({
-        id: li.id,
-        expenseId: input.id,
-        debtorUserId: li.debtorUserId,
-        amount: li.amount,
-        isSettled: false,
-      })),
-    );
 
     return {
       id: input.id,
@@ -187,18 +148,6 @@ export class ExpenseService {
       throw new Error("Not a member of this pool");
     }
 
-    // If updating line items, validate sum
-    const newAmount = input.amount ?? expense.amount;
-    if (input.lineItems) {
-      const lineItemTotal = input.lineItems.reduce(
-        (sum, li) => sum + li.amount,
-        0,
-      );
-      if (Math.abs(lineItemTotal - newAmount) > CURRENCY_TOLERANCE) {
-        throw new Error("Line items total must equal expense amount");
-      }
-    }
-
     const updateData: Record<string, unknown> = {
       updatedAt: new Date().toISOString(),
     };
@@ -211,21 +160,6 @@ export class ExpenseService {
     if (input.notes !== undefined) updateData.notes = input.notes;
 
     await ExpenseRepository.update(input.id, updateData);
-
-    // If line items provided, replace them
-    if (input.lineItems) {
-      await ExpenseLineItemRepository.deleteAllByExpense(input.id);
-
-      await ExpenseLineItemRepository.createMany(
-        input.lineItems.map((li) => ({
-          id: li.id,
-          expenseId: input.id,
-          debtorUserId: li.debtorUserId,
-          amount: li.amount,
-          isSettled: false,
-        })),
-      );
-    }
 
     return { success: true };
   }

@@ -35,11 +35,6 @@ export class ExpenseRepository {
       where: eq(expenses.poolId, poolId),
       with: {
         paidBy: true,
-        lineItems: {
-          with: {
-            debtor: true,
-          },
-        },
       },
       orderBy: [desc(expenses.createdAt)],
     });
@@ -54,25 +49,8 @@ export class ExpenseRepository {
       where: inArray(expenses.poolId, poolIds),
       with: {
         paidBy: true,
-        lineItems: {
-          with: {
-            debtor: true,
-          },
-        },
       },
       orderBy: [desc(expenses.createdAt)],
-    });
-  }
-
-  /**
-   * Find all expenses for a pool with line items only.
-   */
-  static async findAllByPoolWithLineItems(poolId: string) {
-    return db.query.expenses.findMany({
-      where: eq(expenses.poolId, poolId),
-      with: {
-        lineItems: true,
-      },
     });
   }
 

@@ -80,19 +80,6 @@ export const deletePool = createServerFn({ method: "POST" })
   });
 
 // ============================================================================
-// SETTLE UP POOL
-// ============================================================================
-
-export const settleUpPool = createServerFn({ method: "POST" })
-  .middleware([useSessionTokenClientMiddleware, ensureUserMiddleware])
-  .inputValidator((data: unknown) =>
-    z.object({ poolId: z.string() }).parse(data),
-  )
-  .handler(async ({ data, context }) => {
-    return PoolService.settleUpPool(context.userId, data.poolId);
-  });
-
-// ============================================================================
 // ADD MEMBER TO POOL
 // ============================================================================
 
@@ -134,19 +121,6 @@ export const removeMemberFromPool = createServerFn({ method: "POST" })
       data.poolId,
       data.memberId,
     );
-  });
-
-// ============================================================================
-// FIX MISSING LINE ITEMS
-// ============================================================================
-
-export const fixMissingLineItems = createServerFn({ method: "POST" })
-  .middleware([useSessionTokenClientMiddleware, ensureUserMiddleware])
-  .inputValidator((data: unknown) =>
-    z.object({ poolId: z.string() }).parse(data),
-  )
-  .handler(async ({ data, context }) => {
-    return PoolService.fixMissingLineItems(context.userId, data.poolId);
   });
 
 // ============================================================================

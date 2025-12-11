@@ -6,7 +6,6 @@ export {
   type Pool,
   type PoolMembership,
   type Expense,
-  type ExpenseLineItem,
   type Friendship,
   type ExpenseCategoryRule,
   type ExpenseCategory,
@@ -70,23 +69,6 @@ export type ExpenseWithDetails = {
     createdAt: string;
     updatedAt: string;
   };
-  lineItems: Array<{
-    id: string;
-    expenseId: string;
-    debtorUserId: string;
-    amount: number;
-    isSettled: boolean;
-    debtor: {
-      id: string;
-      email: string;
-      firstName: string | null;
-      lastName: string | null;
-      bio: string | null;
-      venmoHandle: string | null;
-      createdAt: string;
-      updatedAt: string;
-    };
-  }>;
 };
 
 // Category display info

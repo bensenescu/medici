@@ -8,7 +8,6 @@ import {
   PoolRepository,
   PoolMembershipRepository,
   ExpenseRepository,
-  ExpenseLineItemRepository,
   SettlementRepository,
 } from "@/server/repositories";
 import { BalanceService, type BalanceUser } from "./BalanceService";
@@ -33,24 +32,33 @@ export class PoolService {
     const userMemberships =
       await PoolMembershipRepository.findAllByUser(userId);
 
-    const poolsWithMemberships = await Promise.all(
-      userMemberships.map(async (membership) => {
-        const allMemberships =
-          await PoolMembershipRepository.findAllByPoolWithUsers(
-            membership.poolId,
-          );
+    if (userMemberships.length === 0) {
+      return [];
+    }
 
-        return {
-          ...membership.pool,
-          memberships: allMemberships.map((m) => ({
-            ...m,
-            user: m.user,
-          })),
-        };
-      }),
-    );
+    // Batch fetch all memberships for all pools in a single query
+    const poolIds = userMemberships.map((m) => m.poolId);
+    const allMemberships =
+      await PoolMembershipRepository.findAllByPoolIdsWithUsers(poolIds);
 
-    return poolsWithMemberships;
+    // Group memberships by pool
+    const membershipsByPool = new Map<string, typeof allMemberships>();
+    for (const membership of allMemberships) {
+      const existing = membershipsByPool.get(membership.poolId) ?? [];
+      existing.push(membership);
+      membershipsByPool.set(membership.poolId, existing);
+    }
+
+    // Build result
+    return userMemberships.map((membership) => ({
+      ...membership.pool,
+      memberships: (membershipsByPool.get(membership.poolId) ?? []).map(
+        (m) => ({
+          ...m,
+          user: m.user,
+        }),
+      ),
+    }));
   }
 
   /**
@@ -166,37 +174,8 @@ export class PoolService {
   }
 
   /**
-   * Settle up a pool - mark all expenses as settled.
-   * Verifies user is a member.
-   */
-  static async settleUpPool(userId: string, poolId: string) {
-    const membership = await PoolMembershipRepository.findByPoolAndUser(
-      poolId,
-      userId,
-    );
-
-    if (!membership) {
-      throw new Error("Not a member of this pool");
-    }
-
-    const now = new Date().toISOString();
-
-    // Mark all expenses as settled
-    await ExpenseRepository.settleAllByPool(poolId, now);
-
-    // Mark all line items as settled
-    const expenseIds = await ExpenseRepository.findIdsByPool(poolId);
-    for (const expenseId of expenseIds) {
-      await ExpenseLineItemRepository.settleAllByExpense(expenseId);
-    }
-
-    return { success: true };
-  }
-
-  /**
    * Add a member to a pool.
    * Verifies user is admin.
-   * Recalculates line items for existing expenses.
    */
   static async addMemberToPool(
     userId: string,
@@ -232,29 +211,6 @@ export class PoolService {
       createdAt: new Date().toISOString(),
     });
 
-    // Recalculate line items for all existing expenses
-    const allMemberships = await PoolMembershipRepository.findAllByPool(poolId);
-    const poolExpenses =
-      await ExpenseRepository.findAllByPoolWithLineItems(poolId);
-
-    for (const expense of poolExpenses) {
-      const newSplitAmount = expense.amount / allMemberships.length;
-
-      // Delete existing line items
-      await ExpenseLineItemRepository.deleteAllByExpense(expense.id);
-
-      // Create new line items for all members
-      await ExpenseLineItemRepository.createMany(
-        allMemberships.map((m) => ({
-          id: crypto.randomUUID(),
-          expenseId: expense.id,
-          debtorUserId: m.userId,
-          amount: newSplitAmount,
-          isSettled: expense.isSettled,
-        })),
-      );
-    }
-
     return { success: true };
   }
 
@@ -288,75 +244,6 @@ export class PoolService {
     await PoolMembershipRepository.deleteByPoolAndUser(poolId, memberId);
 
     return { success: true };
-  }
-
-  /**
-   * Fix missing line items for a pool.
-   * Verifies user is a member.
-   */
-  static async fixMissingLineItems(userId: string, poolId: string) {
-    const membership = await PoolMembershipRepository.findByPoolAndUser(
-      poolId,
-      userId,
-    );
-
-    if (!membership) {
-      throw new Error("Not a member of this pool");
-    }
-
-    const allMemberships = await PoolMembershipRepository.findAllByPool(poolId);
-    const poolExpenses =
-      await ExpenseRepository.findAllByPoolWithLineItems(poolId);
-
-    let fixedCount = 0;
-    let updatedCount = 0;
-
-    for (const expense of poolExpenses) {
-      if (expense.lineItems.length === 0) {
-        // No line items - create equal split
-        const splitAmount = expense.amount / allMemberships.length;
-
-        await ExpenseLineItemRepository.createMany(
-          allMemberships.map((m) => ({
-            id: crypto.randomUUID(),
-            expenseId: expense.id,
-            debtorUserId: m.userId,
-            amount: splitAmount,
-            isSettled: expense.isSettled,
-          })),
-        );
-
-        fixedCount++;
-      } else {
-        // Check if we need to add new members
-        const existingDebtorIds = new Set(
-          expense.lineItems.map((li) => li.debtorUserId),
-        );
-        const missingMembers = allMemberships.filter(
-          (m) => !existingDebtorIds.has(m.userId),
-        );
-
-        if (missingMembers.length > 0) {
-          const newSplitAmount = expense.amount / allMemberships.length;
-
-          await ExpenseLineItemRepository.deleteAllByExpense(expense.id);
-
-          await ExpenseLineItemRepository.createMany(
-            allMemberships.map((m) => ({
-              id: crypto.randomUUID(),
-              expenseId: expense.id,
-              debtorUserId: m.userId,
-              amount: newSplitAmount,
-              isSettled: expense.isSettled,
-            })),
-          );
-
-          updatedCount++;
-        }
-      }
-    }
-
-    return { fixedCount, updatedCount, totalExpenses: poolExpenses.length };
   }
 
   /**

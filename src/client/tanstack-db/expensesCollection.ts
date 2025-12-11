@@ -16,21 +16,15 @@ export const expensesCollection = lazyInitForWorkers(() =>
       queryKey: ["expenses"],
       queryFn: async () => {
         const result = await getAllExpenses();
-        // Flatten: remove paidBy and lineItems for flat storage
-        return result.expenses.map(
-          ({ paidBy, lineItems, ...expense }) => expense,
-        );
+        // Flatten: remove paidBy for flat storage (balance is computed dynamically)
+        return result.expenses.map(({ paidBy, ...expense }) => expense);
       },
       queryClient,
       getKey: (item) => item.id,
       onInsert: async ({ transaction }) => {
         const { modified: newExpense } = transaction.mutations[0];
-        // For now, create with empty line items - actual line items handling will come in Phase 3
         await createExpense({
-          data: {
-            ...newExpense,
-            lineItems: [], // Will be populated properly when we have real DB
-          },
+          data: newExpense,
         });
       },
       onUpdate: async ({ transaction }) => {

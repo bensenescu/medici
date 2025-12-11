@@ -3,36 +3,28 @@ import {
   TrendingDown,
   ArrowRight,
   UserPlus,
-  DollarSign,
   CheckCircle,
+  DollarSign,
 } from "lucide-react";
-import { getUserDisplayName } from "@/utils/formatters";
+import { getUserDisplayName, CURRENCY_TOLERANCE } from "@/utils/formatters";
 import type {
   PoolBalanceResult,
   MemberBalance,
   SimplifiedDebt,
 } from "@/server/services/BalanceService";
-import { CURRENCY_TOLERANCE } from "@/utils/formatters";
+import type { SelectedDebt } from "./types";
 
-interface BalanceCardProps {
+interface BalancesCardProps {
   balances: PoolBalanceResult;
   totalExpenses: number;
   memberCount: number;
   unsettledCount: number;
   currentUserId: string;
   onAddMember: () => void;
-  onRecordPayment: (
-    debts: Array<{
-      toUserId: string;
-      toUserName: string;
-      toUserVenmo: string | null;
-      maxAmount: number;
-      paymentAmount: string;
-    }>,
-  ) => void;
+  onRecordPayment: (debts: SelectedDebt[]) => void;
 }
 
-export function BalanceCard({
+export function BalancesCard({
   balances,
   totalExpenses,
   memberCount,
@@ -40,12 +32,12 @@ export function BalanceCard({
   currentUserId,
   onAddMember,
   onRecordPayment,
-}: BalanceCardProps) {
+}: BalancesCardProps) {
   const hasNonZeroBalances = balances.memberBalances.some(
     (b: MemberBalance) => Math.abs(b.balance) > CURRENCY_TOLERANCE,
   );
 
-  // Pool is all settled up
+  // All settled up state
   if (!hasNonZeroBalances && balances.simplifiedDebts.length === 0) {
     return (
       <div className="card bg-base-100 shadow mb-6">
@@ -61,6 +53,7 @@ export function BalanceCard({
             </button>
           </div>
 
+          {/* Compact Stats Summary */}
           <div className="flex items-center gap-2 text-sm text-base-content/60">
             <span className="font-medium text-primary">
               ${totalExpenses.toFixed(2)}
@@ -79,11 +72,7 @@ export function BalanceCard({
     );
   }
 
-  // Pool has balances to show
-  if (!hasNonZeroBalances && balances.simplifiedDebts.length === 0) {
-    return null;
-  }
-
+  // Split debts by category
   const yourDebts = balances.simplifiedDebts.filter(
     (debt: SimplifiedDebt) => debt.fromUserId === currentUserId,
   );
