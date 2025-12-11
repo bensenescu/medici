@@ -1,10 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { ensureUserMiddleware } from "@/middleware/ensureUser";
-import { useSessionTokenClientMiddleware } from "@/embedded-sdk/client";
-import { db } from "@/db";
-import { expenseCategoryRules, expenseCategories } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { useSessionTokenClientMiddleware } from "@/embedded-sdk/client/useSessionTokenClientMiddleware";
+import { expenseCategories } from "@/db/schema";
+import { RuleService } from "@/server/services";
 
 // ============================================================================
 // GET ALL RULES (for current user)
@@ -13,12 +12,7 @@ import { eq } from "drizzle-orm";
 export const getAllRules = createServerFn()
   .middleware([useSessionTokenClientMiddleware, ensureUserMiddleware])
   .handler(async ({ context }) => {
-    const userId = context.userId;
-
-    const rules = await db.query.expenseCategoryRules.findMany({
-      where: eq(expenseCategoryRules.userId, userId),
-    });
-
+    const rules = await RuleService.getAllRules(context.userId);
     return { rules };
   });
 
@@ -38,26 +32,8 @@ export const createRule = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data, context }) => {
-    const userId = context.userId;
-    const now = new Date().toISOString();
-
-    await db.insert(expenseCategoryRules).values({
-      id: data.id,
-      userId,
-      rule: data.rule.toLowerCase(), // Store lowercase for case-insensitive matching
-      category: data.category,
-      createdAt: now,
-    });
-
-    return {
-      rule: {
-        id: data.id,
-        userId,
-        rule: data.rule.toLowerCase(),
-        category: data.category,
-        createdAt: now,
-      },
-    };
+    const rule = await RuleService.createRule(context.userId, data);
+    return { rule };
   });
 
 // ============================================================================
@@ -68,26 +44,7 @@ export const deleteRule = createServerFn({ method: "POST" })
   .middleware([useSessionTokenClientMiddleware, ensureUserMiddleware])
   .inputValidator((data: unknown) => z.object({ id: z.string() }).parse(data))
   .handler(async ({ data, context }) => {
-    const userId = context.userId;
-
-    // Verify rule belongs to user
-    const rule = await db.query.expenseCategoryRules.findFirst({
-      where: eq(expenseCategoryRules.id, data.id),
-    });
-
-    if (!rule) {
-      throw new Response("Rule not found", { status: 404 });
-    }
-
-    if (rule.userId !== userId) {
-      throw new Response("Not authorized to delete this rule", { status: 403 });
-    }
-
-    await db
-      .delete(expenseCategoryRules)
-      .where(eq(expenseCategoryRules.id, data.id));
-
-    return { success: true };
+    return RuleService.deleteRule(context.userId, data.id);
   });
 
 // ============================================================================
@@ -101,22 +58,9 @@ export const suggestCategory = createServerFn()
     z.object({ expenseName: z.string() }).parse(data),
   )
   .handler(async ({ data, context }) => {
-    const userId = context.userId;
-
-    // Get user's rules
-    const rules = await db.query.expenseCategoryRules.findMany({
-      where: eq(expenseCategoryRules.userId, userId),
-    });
-
-    const expenseNameLower = data.expenseName.toLowerCase();
-
-    // Find first matching rule
-    for (const rule of rules) {
-      if (expenseNameLower.includes(rule.rule)) {
-        return { category: rule.category };
-      }
-    }
-
-    // No matching rule found
-    return { category: null };
+    const category = await RuleService.suggestCategory(
+      context.userId,
+      data.expenseName,
+    );
+    return { category };
   });

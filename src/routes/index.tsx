@@ -1,8 +1,6 @@
-import { createFileRoute, Link, useLocation } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useState } from "react";
-import { useIsMobile } from "@/client/hooks/use-mobile";
-import { TabBar } from "@/client/components/TabBar";
 import { poolsCollection } from "@/client/tanstack-db";
 import { Plus, Wallet, Users, ChevronRight } from "lucide-react";
 
@@ -11,8 +9,6 @@ export const Route = createFileRoute("/")({
 });
 
 function Home() {
-  const isMobile = useIsMobile();
-  const location = useLocation();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newPoolName, setNewPoolName] = useState("");
   const [newPoolDescription, setNewPoolDescription] = useState("");
@@ -190,12 +186,6 @@ function Home() {
           </form>
         </div>
       </dialog>
-
-      {isMobile && (
-        <div className="fixed bottom-0 left-0 right-0">
-          <TabBar currentPath={location.pathname} />
-        </div>
-      )}
     </>
   );
 }

@@ -2,7 +2,7 @@ import { queryCollectionOptions } from "@tanstack/query-db-collection";
 import { queryClient } from "./queryClient";
 import { getAllRules, createRule, deleteRule } from "@/serverFunctions/rules";
 import { createCollection } from "@tanstack/react-db";
-import { lazyInitForWorkers } from "@/embedded-sdk/client";
+import { lazyInitForWorkers } from "@/embedded-sdk/client/lazyInitForWorkers";
 import type { ExpenseCategoryRule } from "@/types";
 
 export const rulesCollection = lazyInitForWorkers(() =>

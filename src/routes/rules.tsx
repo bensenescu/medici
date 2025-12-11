@@ -1,20 +1,16 @@
-import { createFileRoute, useLocation } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useLiveQuery } from "@tanstack/react-db";
-import { useIsMobile } from "@/client/hooks/use-mobile";
-import { TabBar } from "@/client/components/TabBar";
 import { Plus, Trash2, Sparkles, Tag } from "lucide-react";
-import { categoryInfo, expenseCategories, type ExpenseCategory } from "@/types";
+import { categoryInfo, type ExpenseCategory } from "@/types";
 import { rulesCollection } from "@/client/tanstack-db";
+import { CategorySelect } from "@/client/components/pool/CategorySelect";
 
 export const Route = createFileRoute("/rules")({
   component: RulesPage,
 });
 
 function RulesPage() {
-  const isMobile = useIsMobile();
-  const location = useLocation();
-
   const [showAddRule, setShowAddRule] = useState(false);
   const [newRule, setNewRule] = useState({
     rule: "",
@@ -206,22 +202,10 @@ function RulesPage() {
               <label className="label">
                 <span className="label-text">Categorize as...</span>
               </label>
-              <select
+              <CategorySelect
                 value={newRule.category}
-                onChange={(e) =>
-                  setNewRule({
-                    ...newRule,
-                    category: e.target.value as ExpenseCategory,
-                  })
-                }
-                className="select select-bordered"
-              >
-                {expenseCategories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {categoryInfo[cat].label}
-                  </option>
-                ))}
-              </select>
+                onChange={(category) => setNewRule({ ...newRule, category })}
+              />
             </div>
 
             <div className="modal-action">
@@ -251,12 +235,6 @@ function RulesPage() {
           </form>
         </div>
       </dialog>
-
-      {isMobile && (
-        <div className="fixed bottom-0 left-0 right-0">
-          <TabBar currentPath={location.pathname} />
-        </div>
-      )}
     </>
   );
 }

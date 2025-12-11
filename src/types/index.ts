@@ -13,6 +13,14 @@ export {
   type PoolRole,
 } from "@/db/schema";
 
+// Re-export balance types from service (single source of truth)
+export type {
+  MemberBalance,
+  SimplifiedDebt,
+  BalanceUser,
+  PoolBalanceResult,
+} from "@/server/services/BalanceService";
+
 // Computed types for UI
 export type PoolWithMemberships = {
   id: string;
@@ -79,39 +87,6 @@ export type ExpenseWithDetails = {
       updatedAt: string;
     };
   }>;
-};
-
-export type MemberBalance = {
-  userId: string;
-  user: {
-    id: string;
-    email: string;
-    firstName: string | null;
-    lastName: string | null;
-    bio: string | null;
-    venmoHandle: string | null;
-    createdAt: string;
-    updatedAt: string;
-  };
-  balance: number; // Positive = owed money, Negative = owes money
-};
-
-export type SimplifiedDebt = {
-  fromUserId: string;
-  fromUser: {
-    id: string;
-    email: string;
-    firstName: string | null;
-    lastName: string | null;
-  };
-  toUserId: string;
-  toUser: {
-    id: string;
-    email: string;
-    firstName: string | null;
-    lastName: string | null;
-  };
-  amount: number;
 };
 
 // Category display info
