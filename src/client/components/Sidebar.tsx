@@ -38,7 +38,7 @@ export function Sidebar({ currentPath }: SidebarProps) {
           Every App
         </a>
       </div>
-      <div className="px-4 py-4">
+      <div className="py-4 pl-2 pr-4">
         <nav className="space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -47,10 +47,10 @@ export function Sidebar({ currentPath }: SidebarProps) {
               <Link
                 key={item.to}
                 to={item.to}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none ${
+                className={`flex items-center gap-3 px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none ${
                   item.isActive
-                    ? "bg-primary text-primary-content"
-                    : "text-base-content/70 hover:bg-base-200 hover:text-base-content"
+                    ? "text-base-content border-l-4 border-primary"
+                    : "text-base-content/70 hover:text-base-content border-l-4 border-transparent"
                 }`}
               >
                 <Icon className="h-5 w-5" />

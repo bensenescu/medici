@@ -8,6 +8,7 @@ import {
   poolsCollection,
   expensesCollection,
   friendsCollection,
+  rulesCollection,
 } from "@/client/tanstack-db";
 import {
   ArrowLeft,
@@ -15,8 +16,6 @@ import {
   DollarSign,
   Users,
   Settings,
-  ChevronDown,
-  ChevronUp,
   TrendingUp,
   TrendingDown,
   ArrowRight,
@@ -24,8 +23,7 @@ import {
   Trash2,
   UserPlus,
   CheckCircle,
-  Filter,
-  X,
+  MoreVertical,
 } from "lucide-react";
 import { categoryInfo, expenseCategories, type ExpenseCategory } from "@/types";
 import {
@@ -52,7 +50,6 @@ type Expense = {
   description: string | null;
   notes: string | null;
   category: ExpenseCategory;
-  splitMethod: string;
   isSettled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -98,16 +95,7 @@ function PoolDetail() {
     category: "miscellaneous" as ExpenseCategory,
   });
 
-  // Filter states
-  const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | "all">(
-    "all",
-  );
-  const [showSettled, setShowSettled] = useState(true);
-
   // Other states
-  const [expandedExpenseId, setExpandedExpenseId] = useState<string | null>(
-    null,
-  );
   const [balances, setBalances] = useState<PoolBalanceResult | null>(null);
   const [balancesLoading, setBalancesLoading] = useState(true);
   const [poolMembers, setPoolMembers] = useState<PoolMembership[]>([]);
@@ -139,19 +127,13 @@ function PoolDetail() {
     q.from({ friend: friendsCollection }),
   );
 
-  // Filter expenses based on filters
-  const expenses = useMemo(() => {
-    if (!allExpenses) return [];
-    return allExpenses.filter((expense) => {
-      if (categoryFilter !== "all" && expense.category !== categoryFilter) {
-        return false;
-      }
-      if (!showSettled && expense.isSettled) {
-        return false;
-      }
-      return true;
-    });
-  }, [allExpenses, categoryFilter, showSettled]);
+  // Live query for rules (for auto-categorization)
+  const { data: rules } = useLiveQuery((q) =>
+    q.from({ rule: rulesCollection }),
+  );
+
+  // Use all expenses directly
+  const expenses = allExpenses ?? [];
 
   // Fetch balances and pool details when pool changes or expenses change
   useEffect(() => {
@@ -187,6 +169,19 @@ function PoolDetail() {
     );
   }, [friends, poolMembers]);
 
+  // Apply auto-categorization rules when expense name changes
+  useEffect(() => {
+    if (!newExpense.name.trim() || !rules || rules.length === 0) return;
+
+    const expenseNameLower = newExpense.name.toLowerCase();
+    for (const rule of rules) {
+      if (expenseNameLower.includes(rule.rule.toLowerCase())) {
+        setNewExpense((prev) => ({ ...prev, category: rule.category }));
+        break;
+      }
+    }
+  }, [newExpense.name, rules]);
+
   const handleAddExpense = (e: React.FormEvent) => {
     e.preventDefault();
     if (newExpense.name.trim() && newExpense.amount) {
@@ -199,7 +194,6 @@ function PoolDetail() {
         description: null,
         notes: null,
         category: newExpense.category,
-        splitMethod: "default",
         isSettled: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -289,10 +283,6 @@ function PoolDetail() {
     setShowEditExpense(true);
   };
 
-  const toggleExpenseDetails = (expenseId: string) => {
-    setExpandedExpenseId(expandedExpenseId === expenseId ? null : expenseId);
-  };
-
   // Calculate totals
   const totalExpenses = allExpenses?.reduce((sum, e) => sum + e.amount, 0) ?? 0;
   const expenseCount = allExpenses?.length ?? 0;
@@ -351,30 +341,6 @@ function PoolDetail() {
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="stats stats-vertical lg:stats-horizontal shadow w-full mb-6">
-          <div className="stat">
-            <div className="stat-figure text-primary">
-              <DollarSign className="h-8 w-8" />
-            </div>
-            <div className="stat-title">Total Expenses</div>
-            <div className="stat-value text-primary">
-              ${totalExpenses.toFixed(2)}
-            </div>
-            <div className="stat-desc">{expenseCount} expenses</div>
-          </div>
-          <div className="stat">
-            <div className="stat-figure text-secondary">
-              <Users className="h-8 w-8" />
-            </div>
-            <div className="stat-title">Members</div>
-            <div className="stat-value text-secondary">
-              {poolMembers.length}
-            </div>
-            <div className="stat-desc">{unsettledCount} unsettled</div>
-          </div>
-        </div>
-
         {/* Balances Section */}
         {balancesLoading ? (
           <div className="card bg-base-100 shadow mb-6">
@@ -391,17 +357,38 @@ function PoolDetail() {
             <div className="card-body">
               <div className="flex items-center justify-between">
                 <h3 className="card-title text-lg">Balances</h3>
-                <button
-                  onClick={() => setShowSettleUp(true)}
-                  className="btn btn-primary btn-sm"
-                >
-                  <CheckCircle className="h-4 w-4" />
-                  Settle Up
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowAddMember(true)}
+                    className="btn btn-ghost btn-sm btn-square"
+                    title="Add member"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setShowSettleUp(true)}
+                    className="btn btn-primary btn-sm"
+                  >
+                    <CheckCircle className="h-4 w-4" />
+                    Settle Up
+                  </button>
+                </div>
+              </div>
+
+              {/* Compact Stats Summary */}
+              <div className="flex items-center gap-2 text-sm text-base-content/60">
+                <span className="font-medium text-primary">
+                  ${totalExpenses.toFixed(2)}
+                </span>
+                <span>total</span>
+                <span className="text-base-content/30">·</span>
+                <span>{poolMembers.length} members</span>
+                <span className="text-base-content/30">·</span>
+                <span>{unsettledCount} unsettled</span>
               </div>
 
               {/* Member Balances */}
-              <div className="space-y-2 mt-2">
+              <div className="space-y-2 mt-4">
                 {balances.memberBalances
                   .filter((b) => Math.abs(b.balance) > 0.01)
                   .map((balance) => (
@@ -435,11 +422,11 @@ function PoolDetail() {
                   <h4 className="text-sm font-medium text-base-content/70 mb-2">
                     To settle up:
                   </h4>
-                  <div className="space-y-2">
+                  <div className="divide-y divide-base-300">
                     {balances.simplifiedDebts.map((debt, index) => (
                       <div
                         key={index}
-                        className="flex items-center gap-2 text-sm bg-base-200 rounded-lg p-3"
+                        className="flex items-center gap-2 text-sm py-3"
                       >
                         <span className="font-medium">
                           {getUserDisplayName(debt.fromUser)}
@@ -459,200 +446,147 @@ function PoolDetail() {
             </div>
           </div>
         ) : balances && balances.totalUnsettled === 0 ? (
-          <div className="alert alert-success mb-6">
-            <CheckCircle className="h-5 w-5" />
-            <span>All settled up!</span>
+          <div className="card bg-base-100 shadow mb-6">
+            <div className="card-body">
+              <div className="flex items-center justify-between">
+                <h3 className="card-title text-lg">Balances</h3>
+                <button
+                  onClick={() => setShowAddMember(true)}
+                  className="btn btn-ghost btn-sm btn-square"
+                  title="Add member"
+                >
+                  <UserPlus className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Compact Stats Summary */}
+              <div className="flex items-center gap-2 text-sm text-base-content/60">
+                <span className="font-medium text-primary">
+                  ${totalExpenses.toFixed(2)}
+                </span>
+                <span>total</span>
+                <span className="text-base-content/30">·</span>
+                <span>{poolMembers.length} members</span>
+              </div>
+
+              <div className="alert alert-success mt-4">
+                <CheckCircle className="h-5 w-5" />
+                <span>All settled up!</span>
+              </div>
+            </div>
           </div>
         ) : null}
 
-        {/* Action Buttons */}
-        <div className="flex gap-2 mb-4">
-          <button
-            onClick={() => setShowAddExpense(true)}
-            className="btn btn-primary flex-1"
-          >
-            <Plus className="h-4 w-4" />
-            Add Expense
-          </button>
-          <button
-            onClick={() => setShowAddMember(true)}
-            className="btn btn-outline"
-          >
-            <UserPlus className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Filters */}
-        <div className="flex flex-wrap gap-2 mb-4">
-          <div className="dropdown">
-            <div
-              tabIndex={0}
-              role="button"
-              className="btn btn-sm btn-outline gap-2"
-            >
-              <Filter className="h-4 w-4" />
-              {categoryFilter === "all"
-                ? "All Categories"
-                : categoryInfo[categoryFilter].label}
-            </div>
-            <ul
-              tabIndex={0}
-              className="dropdown-content menu bg-base-100 rounded-box z-10 w-52 p-2 shadow max-h-60 overflow-auto"
-            >
-              <li>
-                <button onClick={() => setCategoryFilter("all")}>
-                  All Categories
-                </button>
-              </li>
-              <div className="divider my-1"></div>
-              {expenseCategories.map((cat) => (
-                <li key={cat}>
-                  <button onClick={() => setCategoryFilter(cat)}>
-                    {categoryInfo[cat].label}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <label className="label cursor-pointer gap-2">
-            <input
-              type="checkbox"
-              checked={showSettled}
-              onChange={(e) => setShowSettled(e.target.checked)}
-              className="checkbox checkbox-sm"
-            />
-            <span className="label-text">Show settled</span>
-          </label>
-
-          {(categoryFilter !== "all" || !showSettled) && (
-            <button
-              onClick={() => {
-                setCategoryFilter("all");
-                setShowSettled(true);
-              }}
-              className="btn btn-sm btn-ghost text-error"
-            >
-              <X className="h-4 w-4" />
-              Clear filters
-            </button>
-          )}
-        </div>
-
         {/* Expenses List */}
-        <div className="space-y-2">
-          <h2 className="text-lg font-semibold mb-3">
-            Expenses ({expenses.length})
-          </h2>
-          {expenses && expenses.length > 0 ? (
-            expenses.map((expense) => {
-              const catInfo = categoryInfo[expense.category];
-              const isExpanded = expandedExpenseId === expense.id;
+        <div className="card bg-base-100 shadow mb-6">
+          <div className="card-body">
+            <div className="flex items-center justify-between">
+              <h3 className="card-title text-lg">
+                Expenses ({expenses.length})
+              </h3>
+              <button
+                onClick={() => setShowAddExpense(true)}
+                className="btn btn-primary btn-sm"
+              >
+                <Plus className="h-4 w-4" />
+                Add Expense
+              </button>
+            </div>
+            {expenses && expenses.length > 0 ? (
+              <div className="divide-y divide-base-300 mt-2">
+                {expenses.map((expense) => {
+                  const catInfo = categoryInfo[expense.category];
 
-              return (
-                <div
-                  key={expense.id}
-                  className={`card bg-base-100 shadow-sm ${expense.isSettled ? "opacity-60" : ""}`}
-                >
-                  <div
-                    onClick={() => toggleExpenseDetails(expense.id)}
-                    className="card-body p-4 cursor-pointer hover:bg-base-200/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      {/* Category Icon */}
-                      <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: `${catInfo.color}20` }}
-                      >
-                        <span
-                          className="text-lg"
-                          style={{ color: catInfo.color }}
-                        >
-                          $
-                        </span>
-                      </div>
+                  return (
+                    <div
+                      key={expense.id}
+                      className={expense.isSettled ? "opacity-60" : ""}
+                    >
+                      <div className="py-4">
+                        <div className="flex items-center gap-3">
+                          {/* Category Icon with Status Dot */}
+                          <div
+                            className="relative tooltip"
+                            data-tip={
+                              expense.isSettled ? "Settled" : "Unsettled"
+                            }
+                          >
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-primary/10">
+                              <span className="text-lg text-primary">$</span>
+                            </div>
+                            <div
+                              className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-base-100 ${
+                                expense.isSettled ? "bg-success" : "bg-warning"
+                              }`}
+                            ></div>
+                          </div>
 
-                      {/* Details */}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{expense.name}</p>
-                        <p className="text-sm text-base-content/60">
-                          {catInfo.label}
-                        </p>
-                      </div>
+                          {/* Details */}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">
+                              {expense.name}
+                            </p>
+                            <p className="text-sm text-base-content/60">
+                              {catInfo.label}
+                            </p>
+                          </div>
 
-                      {/* Amount & Chevron */}
-                      <div className="text-right flex items-center gap-2">
-                        <div>
-                          <p className="font-semibold">
-                            ${expense.amount.toFixed(2)}
-                          </p>
-                          <p className="text-xs text-base-content/40">
-                            {new Date(expense.createdAt).toLocaleDateString()}
-                          </p>
+                          {/* Amount */}
+                          <div className="text-right">
+                            <p className="font-semibold">
+                              ${expense.amount.toFixed(2)}
+                            </p>
+                            <p className="text-xs text-base-content/40">
+                              {new Date(expense.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+
+                          {/* Actions Menu */}
+                          <div className="dropdown dropdown-end">
+                            <button
+                              tabIndex={0}
+                              className="btn btn-ghost btn-sm btn-square"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </button>
+                            <ul
+                              tabIndex={0}
+                              className="dropdown-content menu bg-base-200 rounded-lg border border-base-300 z-10 w-40 p-2 gap-1"
+                            >
+                              <li>
+                                <button
+                                  onClick={() =>
+                                    openEditModal(expense as Expense)
+                                  }
+                                  className="flex items-center gap-2 rounded-md"
+                                >
+                                  <Pencil className="h-4 w-4" /> Edit
+                                </button>
+                              </li>
+                              <li className="border-t border-base-300 pt-1 mt-1">
+                                <button
+                                  className="flex items-center gap-2 rounded-md text-error hover:bg-error/10"
+                                  onClick={() =>
+                                    handleDeleteExpense(expense.id)
+                                  }
+                                >
+                                  <Trash2 className="h-4 w-4" /> Delete
+                                </button>
+                              </li>
+                            </ul>
+                          </div>
                         </div>
-                        {isExpanded ? (
-                          <ChevronUp className="h-4 w-4 text-base-content/40" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-base-content/40" />
-                        )}
                       </div>
                     </div>
-
-                    {/* Expanded Details */}
-                    {isExpanded && (
-                      <div className="mt-4 pt-4 border-t border-base-200">
-                        <div className="grid grid-cols-2 gap-2 text-sm mb-4">
-                          <div>
-                            <span className="text-base-content/60">
-                              Split method:
-                            </span>
-                            <span className="ml-2 capitalize">
-                              {expense.splitMethod}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-base-content/60">
-                              Status:
-                            </span>
-                            <span
-                              className={`ml-2 badge badge-sm ${expense.isSettled ? "badge-success" : "badge-warning"}`}
-                            >
-                              {expense.isSettled ? "Settled" : "Unsettled"}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openEditModal(expense as Expense);
-                            }}
-                            className="btn btn-sm btn-outline flex-1"
-                          >
-                            <Pencil className="h-4 w-4" />
-                            Edit
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteExpense(expense.id);
-                            }}
-                            className="btn btn-sm btn-error btn-outline"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })
-          ) : (
-            <div className="text-center py-8 text-base-content/60">
-              <p>No expenses match your filters.</p>
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-base-content/60">
+                <p>No expenses yet.</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -662,11 +596,11 @@ function PoolDetail() {
         onClick={() => setShowAddExpense(false)}
       >
         <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-          <h3 className="font-bold text-lg">Add New Expense</h3>
-          <form onSubmit={handleAddExpense} className="mt-4">
-            <div className="form-control">
+          <h3 className="font-bold text-lg mb-6">Add New Expense</h3>
+          <form onSubmit={handleAddExpense} className="space-y-4">
+            <div className="form-control w-full">
               <label className="label">
-                <span className="label-text">Expense Name</span>
+                <span className="label-text font-medium">Expense Name</span>
               </label>
               <input
                 type="text"
@@ -675,16 +609,16 @@ function PoolDetail() {
                   setNewExpense({ ...newExpense, name: e.target.value })
                 }
                 placeholder="e.g., Groceries, Dinner, Utilities"
-                className="input input-bordered"
+                className="input input-bordered w-full"
                 autoFocus
               />
             </div>
 
-            <div className="form-control mt-4">
+            <div className="form-control w-full">
               <label className="label">
-                <span className="label-text">Amount</span>
+                <span className="label-text font-medium">Amount</span>
               </label>
-              <label className="input input-bordered flex items-center gap-2">
+              <label className="input input-bordered w-full flex items-center gap-2">
                 <span className="text-base-content/60">$</span>
                 <input
                   type="number"
@@ -695,14 +629,14 @@ function PoolDetail() {
                   placeholder="0.00"
                   step="0.01"
                   min="0"
-                  className="grow"
+                  className="grow bg-transparent outline-none"
                 />
               </label>
             </div>
 
-            <div className="form-control mt-4">
+            <div className="form-control w-full">
               <label className="label">
-                <span className="label-text">Category</span>
+                <span className="label-text font-medium">Category</span>
               </label>
               <select
                 value={newExpense.category}
@@ -712,7 +646,7 @@ function PoolDetail() {
                     category: e.target.value as ExpenseCategory,
                   })
                 }
-                className="select select-bordered"
+                className="select select-bordered w-full"
               >
                 {expenseCategories.map((cat) => (
                   <option key={cat} value={cat}>
@@ -722,11 +656,11 @@ function PoolDetail() {
               </select>
             </div>
 
-            <div className="modal-action">
+            <div className="modal-action pt-2">
               <button
                 type="button"
                 onClick={() => setShowAddExpense(false)}
-                className="btn"
+                className="btn btn-ghost"
               >
                 Cancel
               </button>
@@ -748,11 +682,11 @@ function PoolDetail() {
         onClick={() => setShowEditExpense(false)}
       >
         <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-          <h3 className="font-bold text-lg">Edit Expense</h3>
-          <form onSubmit={handleEditExpense} className="mt-4">
-            <div className="form-control">
+          <h3 className="font-bold text-lg mb-6">Edit Expense</h3>
+          <form onSubmit={handleEditExpense} className="space-y-4">
+            <div className="form-control w-full">
               <label className="label">
-                <span className="label-text">Expense Name</span>
+                <span className="label-text font-medium">Expense Name</span>
               </label>
               <input
                 type="text"
@@ -761,16 +695,16 @@ function PoolDetail() {
                   setEditForm({ ...editForm, name: e.target.value })
                 }
                 placeholder="e.g., Groceries, Dinner, Utilities"
-                className="input input-bordered"
+                className="input input-bordered w-full"
                 autoFocus
               />
             </div>
 
-            <div className="form-control mt-4">
+            <div className="form-control w-full">
               <label className="label">
-                <span className="label-text">Amount</span>
+                <span className="label-text font-medium">Amount</span>
               </label>
-              <label className="input input-bordered flex items-center gap-2">
+              <label className="input input-bordered w-full flex items-center gap-2">
                 <span className="text-base-content/60">$</span>
                 <input
                   type="number"
@@ -781,14 +715,14 @@ function PoolDetail() {
                   placeholder="0.00"
                   step="0.01"
                   min="0"
-                  className="grow"
+                  className="grow bg-transparent outline-none"
                 />
               </label>
             </div>
 
-            <div className="form-control mt-4">
+            <div className="form-control w-full">
               <label className="label">
-                <span className="label-text">Category</span>
+                <span className="label-text font-medium">Category</span>
               </label>
               <select
                 value={editForm.category}
@@ -798,7 +732,7 @@ function PoolDetail() {
                     category: e.target.value as ExpenseCategory,
                   })
                 }
-                className="select select-bordered"
+                className="select select-bordered w-full"
               >
                 {expenseCategories.map((cat) => (
                   <option key={cat} value={cat}>
@@ -808,11 +742,11 @@ function PoolDetail() {
               </select>
             </div>
 
-            <div className="modal-action">
+            <div className="modal-action pt-2">
               <button
                 type="button"
                 onClick={() => setShowEditExpense(false)}
-                className="btn"
+                className="btn btn-ghost"
               >
                 Cancel
               </button>
