@@ -69,7 +69,7 @@ function RulesPage() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <Sparkles className="h-7 w-7 text-primary" />
-            <h1 className="text-2xl font-bold">Auto-Categorization Rules</h1>
+            <h1 className="text-2xl font-bold">Rules</h1>
           </div>
           <button
             onClick={() => setShowAddRule(true)}
@@ -177,7 +177,7 @@ function RulesPage() {
         onClick={() => setShowAddRule(false)}
       >
         <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-          <h3 className="font-bold text-lg">Add Auto-Categorization Rule</h3>
+          <h3 className="font-bold text-lg">Add Rule</h3>
           <form onSubmit={handleAddRule} className="mt-4">
             <div className="form-control">
               <label className="label">

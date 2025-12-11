@@ -4,4 +4,7 @@ export { expensesCollection } from "./expensesCollection";
 export { friendsCollection } from "./friendsCollection";
 export type { FriendWithUser } from "./friendsCollection";
 export { rulesCollection } from "./rulesCollection";
+export { poolMembersCollection } from "./poolMembersCollection";
+export type { PoolMemberWithUser } from "./poolMembersCollection";
+export { settlementsCollection } from "./settlementsCollection";
 export { persister } from "./persister";

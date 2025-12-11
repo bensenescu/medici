@@ -15,7 +15,6 @@ import { NotFound } from "@/client/components/NotFound";
 import appCss from "@/client/styles/app.css?url";
 import { Toaster } from "sonner";
 import { Sidebar } from "@/client/components/Sidebar";
-import { MobileHeader } from "@/client/components/MobileHeader";
 import { TabBar } from "@/client/components/TabBar";
 import { useIsMobile } from "@/client/hooks/use-mobile";
 import { EmbeddedAppProvider } from "@/embedded-sdk/client";
@@ -89,14 +88,7 @@ function AppLayout() {
   if (isMobile) {
     return (
       <div className="flex flex-col h-screen bg-base-200">
-        <MobileHeader currentPath={location.pathname} />
-        <div
-          className="flex-1 overflow-auto bg-base-200"
-          style={{
-            paddingTop: "60px",
-            paddingBottom: "80px",
-          }}
-        >
+        <div className="flex-1 overflow-auto pt-6 pb-24 bg-base-200">
           <Outlet />
         </div>
         <TabBar currentPath={location.pathname} />

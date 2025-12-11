@@ -2,7 +2,6 @@
 export {
   expenseCategories,
   poolRoles,
-  friendshipStatuses,
   type User,
   type Pool,
   type PoolMembership,
@@ -12,7 +11,6 @@ export {
   type ExpenseCategoryRule,
   type ExpenseCategory,
   type PoolRole,
-  type FriendshipStatus,
 } from "@/db/schema";
 
 // Computed types for UI

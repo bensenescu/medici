@@ -8,6 +8,7 @@ import {
   poolMemberships,
   expenses,
   expenseLineItems,
+  settlements,
 } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { BalanceService } from "@/services/BalanceService";
@@ -336,6 +337,39 @@ export const addMemberToPool = createServerFn({ method: "POST" })
       createdAt: new Date().toISOString(),
     });
 
+    // Recalculate line items for all existing expenses to include the new member
+    const allMemberships = await db.query.poolMemberships.findMany({
+      where: eq(poolMemberships.poolId, data.poolId),
+    });
+
+    const poolExpenses = await db.query.expenses.findMany({
+      where: eq(expenses.poolId, data.poolId),
+      with: {
+        lineItems: true,
+      },
+    });
+
+    for (const expense of poolExpenses) {
+      // Recalculate split amount for ALL members (including new member)
+      const newSplitAmount = expense.amount / allMemberships.length;
+
+      // Delete existing line items
+      await db
+        .delete(expenseLineItems)
+        .where(eq(expenseLineItems.expenseId, expense.id));
+
+      // Create new line items for all members with equal split
+      for (const m of allMemberships) {
+        await db.insert(expenseLineItems).values({
+          id: crypto.randomUUID(),
+          expenseId: expense.id,
+          debtorUserId: m.userId,
+          amount: newSplitAmount,
+          isSettled: expense.isSettled,
+        });
+      }
+    }
+
     return { success: true };
   });
 
@@ -536,7 +570,12 @@ export const getPoolBalances = createServerFn()
       orderBy: [desc(expenses.createdAt)],
     });
 
-    // Build users map for display names
+    // Get all settlements for this pool
+    const poolSettlements = await db.query.settlements.findMany({
+      where: eq(settlements.poolId, data.poolId),
+    });
+
+    // Build users map for display names (including venmoHandle)
     const usersMap = new Map(
       allMemberships.map((m) => [
         m.userId,
@@ -545,14 +584,16 @@ export const getPoolBalances = createServerFn()
           firstName: m.user.firstName,
           lastName: m.user.lastName,
           email: m.user.email,
+          venmoHandle: m.user.venmoHandle,
         },
       ]),
     );
 
-    // Calculate balances
+    // Calculate balances with equal splits + settlements
     const memberUserIds = allMemberships.map((m) => m.userId);
     const balanceResult = BalanceService.computePoolBalances(
       poolExpenses,
+      poolSettlements,
       memberUserIds,
       usersMap,
     );
