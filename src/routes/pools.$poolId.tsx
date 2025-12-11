@@ -153,7 +153,8 @@ function PoolDetail() {
 
   // Compute balances client-side using equal splits + settlements (no line items needed!)
   const balances = useMemo((): PoolBalanceResult | null => {
-    if (!allExpenses || !poolMembers?.length) {
+    // Wait for all data to load before computing balances to prevent layout shift
+    if (!allExpenses || !poolMembers?.length || poolSettlements === undefined) {
       return null;
     }
 
@@ -175,7 +176,7 @@ function PoolDetail() {
     const memberUserIds = poolMembers.map((m) => m.userId);
     return BalanceService.computePoolBalances(
       allExpenses,
-      poolSettlements ?? [],
+      poolSettlements,
       memberUserIds,
       usersMap,
     );
@@ -386,6 +387,11 @@ function PoolDetail() {
     return user.email.split("@")[0];
   };
 
+  // Return null until all data is fully loaded to prevent layout shift
+  if (!balances || currentUserId === null) {
+    return null;
+  }
+
   if (!pool) {
     return (
       <div className="p-4">
@@ -427,17 +433,8 @@ function PoolDetail() {
         </div>
 
         {/* Balances Section */}
-        {!balances ? (
-          <div className="card bg-base-100 shadow mb-6">
-            <div className="card-body">
-              <div className="flex justify-center">
-                <span className="loading loading-spinner loading-md"></span>
-              </div>
-            </div>
-          </div>
-        ) : balances &&
-          (balances.memberBalances.some((b) => Math.abs(b.balance) > 0.01) ||
-            balances.simplifiedDebts.length > 0) ? (
+        {balances.memberBalances.some((b) => Math.abs(b.balance) > 0.01) ||
+        balances.simplifiedDebts.length > 0 ? (
           <div className="card bg-base-100 shadow mb-6">
             <div className="card-body">
               <div className="flex items-center justify-between">
@@ -615,7 +612,7 @@ function PoolDetail() {
                 })()}
             </div>
           </div>
-        ) : balances && balances.simplifiedDebts.length === 0 ? (
+        ) : balances.simplifiedDebts.length === 0 ? (
           <div className="card bg-base-100 shadow mb-6">
             <div className="card-body">
               <div className="flex items-center justify-between">
