@@ -31,10 +31,8 @@ import { categoryInfo, expenseCategories, type ExpenseCategory } from "@/types";
 import { addMemberToPool } from "@/serverFunctions/pools";
 import { getCurrentUser } from "@/serverFunctions/poolMembers";
 import { updateExpense, deleteExpense } from "@/serverFunctions/expenses";
-import {
-  createSettlement,
-  deleteSettlement,
-} from "@/serverFunctions/settlements";
+import { createSettlement } from "@/client/actions/createSettlement";
+import { deleteSettlement } from "@/serverFunctions/settlements";
 import {
   BalanceService,
   type PoolBalanceResult,
@@ -57,22 +55,6 @@ type Expense = {
   isSettled: boolean;
   createdAt: string;
   updatedAt: string;
-};
-
-type PoolMembership = {
-  id: string;
-  poolId: string;
-  userId: string;
-  role: string;
-  defaultSplitPercentage: number;
-  createdAt: string;
-  user: {
-    id: string;
-    email: string;
-    firstName: string | null;
-    lastName: string | null;
-    venmoHandle?: string | null;
-  };
 };
 
 function PoolDetail() {
@@ -319,7 +301,7 @@ function PoolDetail() {
 
   const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedDebts.length === 0) return;
+    if (selectedDebts.length === 0 || !currentUserId) return;
 
     // Validate all amounts
     const paymentsToSubmit = selectedDebts
@@ -350,50 +332,45 @@ function PoolDetail() {
     setIsSubmittingPayment(true);
     setPaymentError(null);
 
+    // Close modal and reset state immediately for optimistic UX
+    setShowRecordPayment(false);
+    setSelectedDebts([]);
+    setPaymentNote("");
+
     try {
-      // Submit all payments
+      // Submit all payments using optimistic action
       for (const payment of paymentsToSubmit) {
-        await createSettlement({
-          data: {
-            poolId,
-            toUserId: payment.toUserId,
-            amount: payment.amount,
-            note: paymentNote || undefined,
-          },
+        createSettlement({
+          poolId,
+          fromUserId: currentUserId,
+          toUserId: payment.toUserId,
+          amount: payment.amount,
+          note: paymentNote || undefined,
         });
       }
-
-      // Refetch settlements collection
-      await settlementsCollection.utils.refetch();
-
-      // Close modal and reset state
-      setShowRecordPayment(false);
-      setSelectedDebts([]);
-      setPaymentNote("");
     } catch (error) {
       console.error("Failed to record payment:", error);
-      if (error instanceof Error) {
-        setPaymentError(error.message);
-      } else {
-        setPaymentError("Failed to record payment. Please try again.");
-      }
+      // Error handling - the optimistic update will be reverted by tanstack-db
     } finally {
       setIsSubmittingPayment(false);
     }
   };
 
   const handleDeleteSettlement = async (settlementId: string) => {
+    // Optimistic delete - UI updates immediately
+    settlementsCollection.delete(settlementId);
+
     try {
       await deleteSettlement({ data: { settlementId } });
-      await settlementsCollection.utils.refetch();
     } catch (error) {
       console.error("Failed to delete settlement:", error);
+      // Refetch to restore state on error
+      await settlementsCollection.utils.refetch();
     }
   };
 
   // Calculate totals
   const totalExpenses = allExpenses?.reduce((sum, e) => sum + e.amount, 0) ?? 0;
-  const expenseCount = allExpenses?.length ?? 0;
   const unsettledCount = allExpenses?.filter((e) => !e.isSettled).length ?? 0;
 
   // Helper to display user name
@@ -688,6 +665,8 @@ function PoolDetail() {
                   const toMember = poolMembers?.find(
                     (m) => m.userId === settlement.toUserId,
                   );
+                  const isLoaded =
+                    currentUserId && poolMembers && settlement.createdByUserId;
                   const canDelete =
                     currentUserId &&
                     (settlement.createdByUserId === currentUserId ||
@@ -708,28 +687,38 @@ function PoolDetail() {
                       <span className="hidden md:block font-medium truncate">
                         {getUserDisplayName(toMember?.user)}
                       </span>
-                      <span className="ml-auto font-bold text-success flex-shrink-0">
-                        ${settlement.amount.toFixed(2)}
-                      </span>
-                      <span className="text-xs text-base-content/40 flex-shrink-0">
-                        <span className="hidden md:inline">
-                          {new Date(settlement.createdAt).toLocaleDateString()}
-                        </span>
-                        <span className="md:hidden">
-                          {new Date(settlement.createdAt).toLocaleDateString(
-                            "en-US",
-                            { month: "numeric", day: "numeric" },
+                      {isLoaded && (
+                        <>
+                          <span className="ml-auto font-bold text-success flex-shrink-0">
+                            ${settlement.amount.toFixed(2)}
+                          </span>
+                          <span className="text-xs text-base-content/40 flex-shrink-0">
+                            <span className="hidden md:inline">
+                              {new Date(
+                                settlement.createdAt,
+                              ).toLocaleDateString()}
+                            </span>
+                            <span className="md:hidden">
+                              {new Date(
+                                settlement.createdAt,
+                              ).toLocaleDateString("en-US", {
+                                month: "numeric",
+                                day: "numeric",
+                              })}
+                            </span>
+                          </span>
+                          {canDelete && (
+                            <button
+                              onClick={() =>
+                                handleDeleteSettlement(settlement.id)
+                              }
+                              className="btn btn-ghost btn-xs btn-square text-error flex-shrink-0"
+                              title="Delete settlement"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
                           )}
-                        </span>
-                      </span>
-                      {canDelete && (
-                        <button
-                          onClick={() => handleDeleteSettlement(settlement.id)}
-                          className="btn btn-ghost btn-xs btn-square text-error flex-shrink-0"
-                          title="Delete settlement"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
+                        </>
                       )}
                     </div>
                   );
