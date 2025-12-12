@@ -67,13 +67,6 @@ async function deleteSettlement(settlementId: string) {
   await db.delete(settlements).where(eq(settlements.id, settlementId));
 }
 
-/**
- * Delete all settlements for a pool.
- */
-async function deleteAllByPool(poolId: string) {
-  await db.delete(settlements).where(eq(settlements.poolId, poolId));
-}
-
 export const SettlementRepository = {
   findById,
   findAllByPool,
@@ -81,5 +74,4 @@ export const SettlementRepository = {
   findAllByPoolIds,
   create,
   delete: deleteSettlement,
-  deleteAllByPool,
 };

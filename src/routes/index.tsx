@@ -3,6 +3,7 @@ import { useLiveQuery } from "@tanstack/react-db";
 import { useState } from "react";
 import { poolsCollection } from "@/client/tanstack-db";
 import { Plus, Wallet, Users, ChevronRight } from "lucide-react";
+import { useCurrentUser } from "@/embedded-sdk/client";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -13,6 +14,8 @@ function Home() {
   const [newPoolName, setNewPoolName] = useState("");
   const [newPoolDescription, setNewPoolDescription] = useState("");
 
+  const currentUser = useCurrentUser();
+
   // Live query for pools
   const {
     data: pools,
@@ -22,11 +25,12 @@ function Home() {
 
   const handleCreatePool = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPoolName.trim()) {
+    if (newPoolName.trim() && currentUser) {
       poolsCollection.insert({
         id: crypto.randomUUID(),
         name: newPoolName.trim(),
         description: newPoolDescription.trim() || null,
+        createdByUserId: currentUser.userId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });

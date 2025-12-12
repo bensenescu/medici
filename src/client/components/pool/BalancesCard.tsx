@@ -18,7 +18,7 @@ interface BalancesCardProps {
   balances: PoolBalanceResult;
   totalExpenses: number;
   memberCount: number;
-  unsettledCount: number;
+  expenseCount: number;
   currentUserId: string;
   onAddMember: () => void;
   onRecordPayment: (debts: SelectedDebt[]) => void;
@@ -44,15 +44,15 @@ function BalancesHeader({ onAddMember }: { onAddMember: () => void }) {
 function StatsSummary({
   totalExpenses,
   memberCount,
-  unsettledCount,
+  expenseCount,
   showExpenses = true,
-  showUnsettled = true,
+  showExpenseCount = true,
 }: {
   totalExpenses?: number;
   memberCount: number;
-  unsettledCount?: number;
+  expenseCount?: number;
   showExpenses?: boolean;
-  showUnsettled?: boolean;
+  showExpenseCount?: boolean;
 }) {
   return (
     <div className="flex items-center gap-2 text-sm text-base-content/60">
@@ -66,10 +66,10 @@ function StatsSummary({
         </>
       )}
       <span>{memberCount} members</span>
-      {showUnsettled && unsettledCount !== undefined && (
+      {showExpenseCount && expenseCount !== undefined && expenseCount > 0 && (
         <>
           <span className="text-base-content/30">·</span>
-          <span>{unsettledCount} unsettled</span>
+          <span>{expenseCount} expenses</span>
         </>
       )}
     </div>
@@ -93,7 +93,7 @@ function SettledState({
         <StatsSummary
           totalExpenses={totalExpenses}
           memberCount={memberCount}
-          showUnsettled={false}
+          showExpenseCount={false}
         />
         <div className="alert alert-success mt-4">
           <CheckCircle className="h-5 w-5" />
@@ -119,7 +119,7 @@ function EmptyState({
         <StatsSummary
           memberCount={memberCount}
           showExpenses={false}
-          showUnsettled={false}
+          showExpenseCount={false}
         />
         <p className="text-base-content/50 text-sm mt-4">
           Add your first expense to start tracking balances.
@@ -260,7 +260,7 @@ export function BalancesCard({
   balances,
   totalExpenses,
   memberCount,
-  unsettledCount,
+  expenseCount,
   currentUserId,
   onAddMember,
   onRecordPayment,
@@ -324,7 +324,7 @@ export function BalancesCard({
         <StatsSummary
           totalExpenses={totalExpenses}
           memberCount={memberCount}
-          unsettledCount={unsettledCount}
+          expenseCount={expenseCount}
         />
 
         {/* Member Balances */}

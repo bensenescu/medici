@@ -4,6 +4,7 @@ import {
   real,
   integer,
   index,
+  unique,
 } from "drizzle-orm/sqlite-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -70,6 +71,10 @@ export const pools = sqliteTable(
     id: text("id").primaryKey(),
     name: text("name").notNull(),
     description: text("description"),
+    // The admin/creator of the pool - pool is deleted when this user is deleted
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
     createdAt: text("created_at")
       .notNull()
       .default(sql`(current_timestamp)`),
@@ -99,6 +104,8 @@ export const poolMemberships = sqliteTable(
   (table) => [
     index("pool_memberships_pool_idx").on(table.poolId),
     index("pool_memberships_user_idx").on(table.userId),
+    // Ensure a user can only be a member of a pool once
+    unique("pool_memberships_pool_user_unique").on(table.poolId, table.userId),
   ],
 );
 
@@ -112,16 +119,12 @@ export const expenses = sqliteTable(
       .references(() => pools.id, { onDelete: "cascade" }),
     paidByUserId: text("paid_by_user_id")
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     amount: real("amount").notNull(),
     category: text("category", { enum: expenseCategories })
       .notNull()
       .default("miscellaneous"),
-
-    isSettled: integer("is_settled", { mode: "boolean" })
-      .notNull()
-      .default(false),
     createdAt: text("created_at")
       .notNull()
       .default(sql`(current_timestamp)`),
@@ -132,7 +135,6 @@ export const expenses = sqliteTable(
   (table) => [
     index("expenses_pool_idx").on(table.poolId),
     index("expenses_paid_by_idx").on(table.paidByUserId),
-    index("expenses_settled_idx").on(table.isSettled),
   ],
 );
 
@@ -154,6 +156,11 @@ export const friendships = sqliteTable(
   (table) => [
     index("friendships_user_idx").on(table.userId),
     index("friendships_friend_idx").on(table.friendUserId),
+    // Ensure a friendship pair is unique (A->B can only exist once)
+    unique("friendships_user_friend_unique").on(
+      table.userId,
+      table.friendUserId,
+    ),
   ],
 );
 
@@ -184,10 +191,10 @@ export const settlements = sqliteTable(
       .references(() => pools.id, { onDelete: "cascade" }),
     fromUserId: text("from_user_id")
       .notNull()
-      .references(() => users.id), // who paid (debtor)
+      .references(() => users.id, { onDelete: "cascade" }), // who paid (debtor)
     toUserId: text("to_user_id")
       .notNull()
-      .references(() => users.id), // who received (creditor)
+      .references(() => users.id, { onDelete: "cascade" }), // who received (creditor)
     amount: real("amount").notNull(),
     note: text("note"), // optional: "Venmo", "cash", etc.
     createdAt: text("created_at")
@@ -195,7 +202,7 @@ export const settlements = sqliteTable(
       .default(sql`(current_timestamp)`),
     createdByUserId: text("created_by_user_id")
       .notNull()
-      .references(() => users.id), // who recorded this settlement
+      .references(() => users.id, { onDelete: "cascade" }), // who recorded this settlement
   },
   (table) => [
     index("settlements_pool_idx").on(table.poolId),
@@ -210,6 +217,7 @@ export const settlements = sqliteTable(
 
 export const usersRelations = relations(users, ({ many }) => ({
   poolMemberships: many(poolMemberships),
+  createdPools: many(pools),
   paidExpenses: many(expenses),
   friendshipsOwned: many(friendships, { relationName: "friendshipsOwned" }),
   friendshipsReceived: many(friendships, {
@@ -223,7 +231,11 @@ export const usersRelations = relations(users, ({ many }) => ({
   settlementsCreated: many(settlements, { relationName: "settlementsCreated" }),
 }));
 
-export const poolsRelations = relations(pools, ({ many }) => ({
+export const poolsRelations = relations(pools, ({ one, many }) => ({
+  createdBy: one(users, {
+    fields: [pools.createdByUserId],
+    references: [users.id],
+  }),
   memberships: many(poolMemberships),
   expenses: many(expenses),
   settlements: many(settlements),

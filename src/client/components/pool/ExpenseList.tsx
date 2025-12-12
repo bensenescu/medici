@@ -58,25 +58,12 @@ export function ExpenseList({
                 const catInfo = categoryInfo[expense.category];
 
                 return (
-                  <div
-                    key={expense.id}
-                    className={expense.isSettled ? "opacity-60" : ""}
-                  >
+                  <div key={expense.id}>
                     <div className="py-4">
                       <div className="flex items-center gap-3">
-                        {/* Category Icon with Status Dot */}
-                        <div
-                          className="relative tooltip"
-                          data-tip={expense.isSettled ? "Settled" : "Unsettled"}
-                        >
-                          <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-primary/10">
-                            <span className="text-lg text-primary">$</span>
-                          </div>
-                          <div
-                            className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-base-100 ${
-                              expense.isSettled ? "bg-success" : "bg-warning"
-                            }`}
-                          ></div>
+                        {/* Category Icon */}
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-primary/10">
+                          <span className="text-lg text-primary">$</span>
                         </div>
 
                         {/* Details */}

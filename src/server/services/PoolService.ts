@@ -94,6 +94,7 @@ async function createPool(userId: string, input: CreatePoolInput) {
     id: input.id,
     name: input.name,
     description: input.description,
+    createdByUserId: userId,
     createdAt: now,
     updatedAt: now,
   });
@@ -111,6 +112,7 @@ async function createPool(userId: string, input: CreatePoolInput) {
     id: input.id,
     name: input.name,
     description: input.description,
+    createdByUserId: userId,
     createdAt: now,
     updatedAt: now,
   };

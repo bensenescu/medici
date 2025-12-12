@@ -76,7 +76,6 @@ async function createExpense(userId: string, input: CreateExpenseInput) {
     name: input.name,
     amount: input.amount,
     category,
-    isSettled: false,
     createdAt: now,
     updatedAt: now,
   };

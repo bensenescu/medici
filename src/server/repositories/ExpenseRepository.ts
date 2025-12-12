@@ -5,7 +5,7 @@
 
 import { db } from "@/db";
 import { expenses, type NewExpense } from "@/db/schema";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, desc, inArray } from "drizzle-orm";
 
 /**
  * Find an expense by ID.
@@ -77,21 +77,9 @@ async function create(data: NewExpense) {
  */
 async function update(
   expenseId: string,
-  data: Partial<
-    Pick<NewExpense, "name" | "amount" | "category" | "isSettled" | "updatedAt">
-  >,
+  data: Partial<Pick<NewExpense, "name" | "amount" | "category" | "updatedAt">>,
 ) {
   await db.update(expenses).set(data).where(eq(expenses.id, expenseId));
-}
-
-/**
- * Mark all unsettled expenses in a pool as settled.
- */
-async function settleAllByPool(poolId: string, updatedAt: string) {
-  await db
-    .update(expenses)
-    .set({ isSettled: true, updatedAt })
-    .where(and(eq(expenses.poolId, poolId), eq(expenses.isSettled, false)));
 }
 
 /**
@@ -109,6 +97,5 @@ export const ExpenseRepository = {
   findIdsByPool,
   create,
   update,
-  settleAllByPool,
   delete: deleteExpense,
 };

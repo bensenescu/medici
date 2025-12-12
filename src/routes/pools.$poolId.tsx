@@ -129,7 +129,7 @@ function PoolDetail() {
 
   // Calculate totals
   const totalExpenses = allExpenses?.reduce((sum, e) => sum + e.amount, 0) ?? 0;
-  const unsettledCount = allExpenses?.filter((e) => !e.isSettled).length ?? 0;
+  const expenseCount = allExpenses?.length ?? 0;
 
   // Loading state - wait for user and balances
   if (!currentUser || !balances) {
@@ -166,7 +166,7 @@ function PoolDetail() {
           balances={balances}
           totalExpenses={totalExpenses}
           memberCount={poolMembers?.length ?? 0}
-          unsettledCount={unsettledCount}
+          expenseCount={expenseCount}
           currentUserId={currentUserId}
           onAddMember={() => setShowAddMember(true)}
           onRecordPayment={handleRecordPaymentFromBalances}

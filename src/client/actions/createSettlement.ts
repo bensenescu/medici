@@ -1,8 +1,5 @@
 import { createOptimisticAction } from "@tanstack/react-db";
-import {
-  settlementsCollection,
-  expensesCollection,
-} from "@/client/tanstack-db";
+import { settlementsCollection } from "@/client/tanstack-db";
 import { createSettlement as createSettlementServer } from "@/serverFunctions/settlements";
 
 type CreateSettlementParams = {
@@ -17,8 +14,6 @@ type CreateSettlementParams = {
 /**
  * Action to create a settlement (record a payment).
  * Optimistically adds the settlement to the collection, then syncs with server.
- * If the pool becomes fully settled, all expenses are marked as settled
- * and settlements are cleared.
  */
 export const createSettlement = createOptimisticAction<CreateSettlementParams>({
   onMutate: ({ poolId, optimisticFromUserId, toUserId, amount, note }) => {
@@ -48,12 +43,7 @@ export const createSettlement = createOptimisticAction<CreateSettlementParams>({
     });
 
     // Refetch to sync optimistic state with server
-    // This handles the case where the pool becomes fully settled
-    // and expenses/settlements are updated by the server
-    await Promise.all([
-      settlementsCollection.utils.refetch(),
-      expensesCollection.utils.refetch(),
-    ]);
+    await settlementsCollection.utils.refetch();
 
     return result;
   },

@@ -56,7 +56,6 @@ export type ExpenseWithDetails = {
   name: string;
   amount: number;
   category: (typeof _expenseCategories)[number];
-  isSettled: boolean;
   createdAt: string;
   updatedAt: string;
   paidBy: {
