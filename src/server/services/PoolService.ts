@@ -108,7 +108,6 @@ export class PoolService {
       poolId: input.id,
       userId: userId,
       role: "ADMIN",
-      defaultSplitPercentage: 100,
       createdAt: now,
     });
 
