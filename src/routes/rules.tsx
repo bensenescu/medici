@@ -61,6 +61,10 @@ function RulesPage() {
     }
   };
 
+  if (isLoading) {
+    return null;
+  }
+
   return (
     <>
       <div className="px-4 pb-20 md:pt-4 md:pb-0 overflow-auto">
@@ -80,11 +84,7 @@ function RulesPage() {
         </div>
 
         {/* Rules List */}
-        {isLoading ? (
-          <div className="flex justify-center py-12">
-            <span className="loading loading-spinner loading-lg"></span>
-          </div>
-        ) : rules.length > 0 ? (
+        {rules.length > 0 ? (
           <div className="space-y-3">
             {rules.map((rule) => {
               const catInfo = categoryInfo[rule.category];
@@ -143,7 +143,7 @@ function RulesPage() {
         )}
 
         {/* Example Rules */}
-        {rules.length === 0 && !isLoading && (
+        {rules.length === 0 && (
           <div className="mt-8">
             <h3 className="font-medium text-base-content/70 mb-3">
               Example rules:

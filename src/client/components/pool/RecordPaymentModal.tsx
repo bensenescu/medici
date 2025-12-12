@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { DollarSign } from "lucide-react";
-import { createSettlement } from "@/client/actions/createSettlement";
+import { settlementsCollection } from "@/client/tanstack-db";
 import { CURRENCY_TOLERANCE } from "@/utils/formatters";
 import type { SelectedDebt } from "@/types";
 
@@ -65,19 +65,20 @@ export function RecordPaymentModal({
     setError(null);
 
     try {
-      // Create all settlements - createSettlement handles optimistic updates and server sync
-      // Each call is independent, so we fire them all at once
-      await Promise.all(
-        paymentsToSubmit.map((payment) =>
-          createSettlement({
-            poolId,
-            optimisticFromUserId: currentUserId,
-            toUserId: payment.toUserId,
-            amount: payment.amount,
-            note: note || undefined,
-          }),
-        ),
-      );
+      // Create all settlements optimistically
+      const now = new Date().toISOString();
+      paymentsToSubmit.forEach((payment) => {
+        settlementsCollection.insert({
+          id: crypto.randomUUID(),
+          poolId,
+          fromUserId: currentUserId,
+          toUserId: payment.toUserId,
+          amount: payment.amount,
+          note: note || null,
+          createdAt: now,
+          createdByUserId: currentUserId,
+        });
+      });
       onClose();
     } finally {
       setIsSubmitting(false);

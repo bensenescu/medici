@@ -22,16 +22,19 @@ export const poolsCollection = lazyInitForWorkers(() =>
       queryClient,
       getKey: (item) => item.id,
       onInsert: async ({ transaction }) => {
-        const { modified: newPool } = transaction.mutations[0];
-        await createPool({ data: newPool });
+        for (const mutation of transaction.mutations) {
+          await createPool({ data: mutation.modified });
+        }
       },
       onUpdate: async ({ transaction }) => {
-        const { modified } = transaction.mutations[0];
-        await updatePool({ data: modified });
+        for (const mutation of transaction.mutations) {
+          await updatePool({ data: mutation.modified });
+        }
       },
       onDelete: async ({ transaction }) => {
-        const { original } = transaction.mutations[0];
-        await deletePool({ data: { id: original.id } });
+        for (const mutation of transaction.mutations) {
+          await deletePool({ data: { id: mutation.original.id } });
+        }
       },
     }),
   ),

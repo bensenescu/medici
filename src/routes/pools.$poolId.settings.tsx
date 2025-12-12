@@ -6,8 +6,6 @@ import { ArrowLeft, Plus, Trash2, Save } from "lucide-react";
 import { eq } from "@tanstack/db";
 import { useCurrentUser } from "@/embedded-sdk/client";
 import { getUserDisplayName } from "@/utils/formatters";
-import { updatePool, deletePool } from "@/serverFunctions/pools";
-import type { PoolMemberWithUser } from "@/types";
 
 export const Route = createFileRoute("/pools/$poolId/settings")({
   component: PoolSettings,
@@ -25,8 +23,6 @@ function PoolSettings() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isInitialized, setIsInitialized] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Live queries
@@ -62,41 +58,21 @@ function PoolSettings() {
     poolMembersCollection.delete(memberId);
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!pool || !name.trim()) return;
 
-    setIsSaving(true);
-    try {
-      await updatePool({
-        data: {
-          id: poolId,
-          name: name.trim(),
-          description: description.trim() || null,
-        },
-      });
-      // Update local collection
-      poolsCollection.update(poolId, (draft) => {
-        draft.name = name.trim();
-        draft.description = description.trim() || null;
-        draft.updatedAt = new Date().toISOString();
-      });
-    } finally {
-      setIsSaving(false);
-    }
+    poolsCollection.update(poolId, (draft) => {
+      draft.name = name.trim();
+      draft.description = description.trim() || null;
+      draft.updatedAt = new Date().toISOString();
+    });
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!pool) return;
 
-    setIsDeleting(true);
-    try {
-      await deletePool({ data: { id: poolId } });
-      // Navigate away before deleting from local collection
-      navigate({ to: "/" });
-      poolsCollection.delete(poolId);
-    } finally {
-      setIsDeleting(false);
-    }
+    poolsCollection.delete(poolId);
+    navigate({ to: "/" });
   };
 
   // Loading state
@@ -161,17 +137,11 @@ function PoolSettings() {
             <div className="mt-4">
               <button
                 onClick={handleSave}
-                disabled={!hasChanges || !name.trim() || isSaving}
+                disabled={!hasChanges || !name.trim()}
                 className="btn btn-primary"
               >
-                {isSaving ? (
-                  <span className="loading loading-spinner loading-sm"></span>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4" />
-                    Save Changes
-                  </>
-                )}
+                <Save className="h-4 w-4" />
+                Save Changes
               </button>
             </div>
           )}
@@ -260,23 +230,12 @@ function PoolSettings() {
                   <button
                     onClick={() => setShowDeleteConfirm(false)}
                     className="btn btn-ghost"
-                    disabled={isDeleting}
                   >
                     Cancel
                   </button>
-                  <button
-                    onClick={handleDelete}
-                    className="btn btn-error"
-                    disabled={isDeleting}
-                  >
-                    {isDeleting ? (
-                      <span className="loading loading-spinner loading-sm"></span>
-                    ) : (
-                      <>
-                        <Trash2 className="h-4 w-4" />
-                        Yes, Delete Pool
-                      </>
-                    )}
+                  <button onClick={handleDelete} className="btn btn-error">
+                    <Trash2 className="h-4 w-4" />
+                    Yes, Delete Pool
                   </button>
                 </div>
               </div>

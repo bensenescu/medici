@@ -16,18 +16,20 @@ export const rulesCollection = lazyInitForWorkers(() =>
       queryClient,
       getKey: (item) => item.id,
       onInsert: async ({ transaction }) => {
-        const { modified: newRule } = transaction.mutations[0];
-        await createRule({
-          data: {
-            id: newRule.id,
-            rule: newRule.rule,
-            category: newRule.category,
-          },
-        });
+        for (const mutation of transaction.mutations) {
+          await createRule({
+            data: {
+              id: mutation.modified.id,
+              rule: mutation.modified.rule,
+              category: mutation.modified.category,
+            },
+          });
+        }
       },
       onDelete: async ({ transaction }) => {
-        const { original } = transaction.mutations[0];
-        await deleteRule({ data: { id: original.id } });
+        for (const mutation of transaction.mutations) {
+          await deleteRule({ data: { id: mutation.original.id } });
+        }
       },
     }),
   ),
