@@ -61,14 +61,14 @@ export function AddMemberModal({
         <h3 className="font-bold text-lg">Add Member to Pool</h3>
         {availableFriends.length > 0 ? (
           <>
-            <div className="form-control mt-4">
+            <div className="form-control w-full mt-4">
               <label className="label">
                 <span className="label-text">Select a friend</span>
               </label>
               <select
                 value={selectedFriendId}
                 onChange={(e) => setSelectedFriendId(e.target.value)}
-                className="select select-bordered"
+                className="select select-bordered w-full"
               >
                 <option value="">Choose a friend...</option>
                 {availableFriends.map((friend) => (
