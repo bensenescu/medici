@@ -1,4 +1,5 @@
 import { History, DollarSign, ArrowRight, Trash2 } from "lucide-react";
+import { settlementsCollection } from "@/client/tanstack-db";
 import { getUserDisplayName } from "@/utils/formatters";
 import type { Settlement, PoolMember } from "./types";
 
@@ -6,15 +7,17 @@ interface SettlementHistoryProps {
   settlements: Settlement[];
   poolMembers: PoolMember[] | undefined;
   currentUserId: string;
-  onDeleteSettlement: (settlementId: string) => void;
 }
 
 export function SettlementHistory({
   settlements,
   poolMembers,
   currentUserId,
-  onDeleteSettlement,
 }: SettlementHistoryProps) {
+  const handleDeleteSettlement = (settlementId: string) => {
+    settlementsCollection.delete(settlementId);
+  };
+
   if (!settlements || settlements.length === 0) {
     return null;
   }
@@ -77,7 +80,7 @@ export function SettlementHistory({
                     </span>
                     {canDelete && (
                       <button
-                        onClick={() => onDeleteSettlement(settlement.id)}
+                        onClick={() => handleDeleteSettlement(settlement.id)}
                         className="btn btn-ghost btn-xs btn-square text-error flex-shrink-0"
                         title="Delete settlement"
                       >

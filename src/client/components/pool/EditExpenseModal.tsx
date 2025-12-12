@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { expensesCollection } from "@/client/tanstack-db";
 import type { ExpenseCategory } from "@/types";
 import { CategorySelect } from "./CategorySelect";
 import type { Expense } from "./types";
@@ -7,17 +8,12 @@ interface EditExpenseModalProps {
   isOpen: boolean;
   expense: Expense | null;
   onClose: () => void;
-  onSubmit: (
-    expenseId: string,
-    updates: { name: string; amount: number; category: ExpenseCategory },
-  ) => void;
 }
 
 export function EditExpenseModal({
   isOpen,
   expense,
   onClose,
-  onSubmit,
 }: EditExpenseModalProps) {
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
@@ -36,11 +32,14 @@ export function EditExpenseModal({
     e.preventDefault();
     if (!expense || !name.trim() || !amount) return;
 
-    onSubmit(expense.id, {
-      name: name.trim(),
-      amount: parseFloat(amount),
-      category,
+    // Update expense directly
+    expensesCollection.update(expense.id, (draft) => {
+      draft.name = name.trim();
+      draft.amount = parseFloat(amount);
+      draft.category = category;
+      draft.updatedAt = new Date().toISOString();
     });
+    onClose();
   };
 
   return (

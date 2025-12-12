@@ -1,38 +1,47 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "@tanstack/react-router";
+import { useLiveQuery } from "@tanstack/react-db";
 import { UserPlus } from "lucide-react";
-
-interface Friend {
-  id: string;
-  user: {
-    id: string;
-    firstName: string | null;
-    email: string;
-  };
-}
+import { friendsCollection, poolMembersCollection } from "@/client/tanstack-db";
+import { addMemberToPool } from "@/serverFunctions/pools";
+import type { PoolMember } from "./types";
 
 interface AddMemberModalProps {
+  poolId: string;
+  poolMembers: PoolMember[] | undefined;
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (friendId: string) => Promise<void>;
-  availableFriends: Friend[];
 }
 
 export function AddMemberModal({
+  poolId,
+  poolMembers,
   isOpen,
   onClose,
-  onSubmit,
-  availableFriends,
 }: AddMemberModalProps) {
   const [selectedFriendId, setSelectedFriendId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Query friends
+  const { data: friends } = useLiveQuery((q) =>
+    q.from({ friend: friendsCollection }),
+  );
+
+  // Get friends not already in pool
+  const availableFriends = useMemo(() => {
+    if (!friends || !poolMembers?.length) return friends ?? [];
+    const memberIds = new Set(poolMembers.map((m) => m.userId));
+    return friends.filter((f) => !memberIds.has(f.user.id));
+  }, [friends, poolMembers]);
 
   const handleSubmit = async () => {
     if (!selectedFriendId) return;
     setIsSubmitting(true);
     try {
-      await onSubmit(selectedFriendId);
+      await addMemberToPool({ data: { poolId, friendId: selectedFriendId } });
+      await poolMembersCollection.utils.refetch();
       setSelectedFriendId("");
+      onClose();
     } finally {
       setIsSubmitting(false);
     }

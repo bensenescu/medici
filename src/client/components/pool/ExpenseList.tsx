@@ -1,4 +1,5 @@
 import { Plus, Pencil, Trash2, MoreVertical } from "lucide-react";
+import { expensesCollection } from "@/client/tanstack-db";
 import { categoryInfo } from "@/types";
 import type { Expense } from "./types";
 
@@ -6,15 +7,17 @@ interface ExpenseListProps {
   expenses: Expense[];
   onAddExpense: () => void;
   onEditExpense: (expense: Expense) => void;
-  onDeleteExpense: (expenseId: string) => void;
 }
 
 export function ExpenseList({
   expenses,
   onAddExpense,
   onEditExpense,
-  onDeleteExpense,
 }: ExpenseListProps) {
+  const handleDeleteExpense = (expenseId: string) => {
+    expensesCollection.delete(expenseId);
+  };
+
   return (
     <div className="card bg-base-100 shadow mb-6">
       <div className="card-body">
@@ -93,7 +96,7 @@ export function ExpenseList({
                           <li className="border-t border-base-300 pt-1 mt-1">
                             <button
                               className="flex items-center gap-2 rounded-md text-error hover:bg-error/10"
-                              onClick={() => onDeleteExpense(expense.id)}
+                              onClick={() => handleDeleteExpense(expense.id)}
                             >
                               <Trash2 className="h-4 w-4" /> Delete
                             </button>
