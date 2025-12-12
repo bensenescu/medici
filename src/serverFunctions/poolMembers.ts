@@ -12,7 +12,6 @@ export type PoolMemberWithUser = {
   poolId: string;
   userId: string;
   role: "PARTICIPANT" | "ADMIN";
-  defaultSplitPercentage: number;
   createdAt: string;
   user: {
     id: string;

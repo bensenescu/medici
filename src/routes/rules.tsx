@@ -33,7 +33,7 @@ function RulesPage() {
     try {
       rulesCollection.insert({
         id: crypto.randomUUID(),
-        userId: "", // Will be set by server
+        userId: "pending", // Server will replace with actual userId
         rule: newRule.rule.trim().toLowerCase(),
         category: newRule.category,
         createdAt: new Date().toISOString(),

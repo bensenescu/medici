@@ -90,9 +90,6 @@ export const poolMemberships = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     role: text("role", { enum: poolRoles }).notNull().default("PARTICIPANT"),
-    defaultSplitPercentage: real("default_split_percentage")
-      .notNull()
-      .default(0),
     createdAt: text("created_at")
       .notNull()
       .default(sql`(current_timestamp)`),

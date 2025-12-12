@@ -53,15 +53,7 @@ export const createExpense = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data, context }) => {
-    const expense = await ExpenseService.createExpense(context.userId, {
-      id: data.id,
-      poolId: data.poolId,
-      name: data.name,
-      amount: data.amount,
-      category: data.category,
-      description: data.description,
-      notes: data.notes,
-    });
+    const expense = await ExpenseService.createExpense(context.userId, data);
     return { expense };
   });
 
