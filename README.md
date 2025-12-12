@@ -50,6 +50,8 @@ Just run the same command again:
 every app deploy
 ```
 
+---
+
 ## Local Development
 
 > **Important:** You must run `every app deploy` first to create the D1 database. Your local environment needs the database ID from this deployment to work properly.
