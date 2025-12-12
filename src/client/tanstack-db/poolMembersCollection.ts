@@ -21,10 +21,14 @@ export const poolMembersCollection = lazyInitForWorkers(() =>
       queryClient,
       getKey: (item) => item.id,
       onDelete: async ({ transaction }) => {
-        const { original } = transaction.mutations[0];
-        await removeMemberFromPool({
-          data: { poolId: original.poolId, memberId: original.userId },
-        });
+        for (const mutation of transaction.mutations) {
+          await removeMemberFromPool({
+            data: {
+              poolId: mutation.original.poolId,
+              memberId: mutation.original.userId,
+            },
+          });
+        }
       },
     }),
   ),

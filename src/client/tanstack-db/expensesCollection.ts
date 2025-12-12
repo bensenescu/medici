@@ -22,20 +22,19 @@ export const expensesCollection = lazyInitForWorkers(() =>
       queryClient,
       getKey: (item) => item.id,
       onInsert: async ({ transaction }) => {
-        const { modified: newExpense } = transaction.mutations[0];
-        await createExpense({
-          data: newExpense,
-        });
+        for (const mutation of transaction.mutations) {
+          await createExpense({ data: mutation.modified });
+        }
       },
       onUpdate: async ({ transaction }) => {
-        const { modified } = transaction.mutations[0];
-        await updateExpense({
-          data: modified,
-        });
+        for (const mutation of transaction.mutations) {
+          await updateExpense({ data: mutation.modified });
+        }
       },
       onDelete: async ({ transaction }) => {
-        const { original } = transaction.mutations[0];
-        await deleteExpense({ data: { id: original.id } });
+        for (const mutation of transaction.mutations) {
+          await deleteExpense({ data: { id: mutation.original.id } });
+        }
       },
     }),
   ),

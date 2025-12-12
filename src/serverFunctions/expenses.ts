@@ -47,8 +47,6 @@ export const createExpense = createServerFn({ method: "POST" })
         name: z.string().min(1),
         amount: z.number().positive(),
         category: z.enum(expenseCategories).default("miscellaneous"),
-        description: z.string().nullable().optional(),
-        notes: z.string().nullable().optional(),
       })
       .parse(data),
   )
@@ -70,8 +68,6 @@ export const updateExpense = createServerFn({ method: "POST" })
         name: z.string().min(1).optional(),
         amount: z.number().positive().optional(),
         category: z.enum(expenseCategories).optional(),
-        description: z.string().optional().nullable(),
-        notes: z.string().optional().nullable(),
       })
       .parse(data),
   )

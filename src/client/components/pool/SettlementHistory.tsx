@@ -2,11 +2,11 @@ import { useState } from "react";
 import { History, DollarSign, ArrowRight, Trash2 } from "lucide-react";
 import { settlementsCollection } from "@/client/tanstack-db";
 import { getUserDisplayName } from "@/utils/formatters";
-import type { SettlementWithDetails, PoolMemberWithUser } from "@/types";
+import type { Settlement, PoolMemberWithUser } from "@/types";
 import { ConfirmDialog } from "@/client/components/ConfirmDialog";
 
 interface SettlementHistoryProps {
-  settlements: SettlementWithDetails[];
+  settlements: Settlement[];
   poolMembers: PoolMemberWithUser[] | undefined;
   currentUserId: string;
 }
@@ -22,7 +22,7 @@ export function SettlementHistory({
     amount: number;
   }>({ isOpen: false, settlementId: null, amount: 0 });
 
-  const handleDeleteClick = (settlement: SettlementWithDetails) => {
+  const handleDeleteClick = (settlement: Settlement) => {
     setDeleteConfirm({
       isOpen: true,
       settlementId: settlement.id,

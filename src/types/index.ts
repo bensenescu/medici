@@ -10,6 +10,7 @@ export {
   type ExpenseCategoryRule,
   type ExpenseCategory,
   type PoolRole,
+  type Settlement,
 } from "@/db/schema";
 
 // Import for local use
@@ -84,18 +85,6 @@ export type PoolMemberWithUser = {
     lastName: string | null;
     venmoHandle: string | null;
   };
-};
-
-// Settlement with all fields (for UI display)
-export type SettlementWithDetails = {
-  id: string;
-  poolId: string;
-  fromUserId: string;
-  toUserId: string;
-  amount: number;
-  note: string | null;
-  createdAt: string;
-  createdByUserId: string;
 };
 
 // Selected debt for payment modal

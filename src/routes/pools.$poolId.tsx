@@ -24,7 +24,7 @@ import { AddExpenseModal } from "@/client/components/pool/AddExpenseModal";
 import { EditExpenseModal } from "@/client/components/pool/EditExpenseModal";
 import { AddMemberModal } from "@/client/components/pool/AddMemberModal";
 import { RecordPaymentModal } from "@/client/components/pool/RecordPaymentModal";
-import type { Expense, SelectedDebt, PoolMemberWithUser } from "@/types";
+import type { Expense, SelectedDebt } from "@/types";
 
 export const Route = createFileRoute("/pools/$poolId")({
   component: PoolDetail,
@@ -86,8 +86,6 @@ function PoolDetail() {
         .where(({ settlement }) => eq(settlement.poolId, poolId)),
     [poolId],
   );
-
-  const expenses = allExpenses ?? [];
 
   // Compute balances client-side using equal splits + settlements
   const balances = useMemo((): PoolBalanceResult | null => {
@@ -174,12 +172,12 @@ function PoolDetail() {
 
         <SettlementHistory
           settlements={poolSettlements ?? []}
-          poolMembers={poolMembers as PoolMemberWithUser[] | undefined}
+          poolMembers={poolMembers}
           currentUserId={currentUserId}
         />
 
         <ExpenseList
-          expenses={expenses as Expense[]}
+          expenses={allExpenses ?? []}
           onAddExpense={() => setShowAddExpense(true)}
           onEditExpense={openEditModal}
         />
@@ -204,7 +202,7 @@ function PoolDetail() {
 
       <AddMemberModal
         poolId={poolId}
-        poolMembers={poolMembers as PoolMemberWithUser[] | undefined}
+        poolMembers={poolMembers}
         isOpen={showAddMember}
         onClose={() => setShowAddMember(false)}
       />

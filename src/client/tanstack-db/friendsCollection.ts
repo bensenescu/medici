@@ -32,8 +32,9 @@ export const friendsCollection = lazyInitForWorkers(() =>
       queryClient,
       getKey: (item) => item.id,
       onDelete: async ({ transaction }) => {
-        const { original } = transaction.mutations[0];
-        await removeFriend({ data: { friendshipId: original.id } });
+        for (const mutation of transaction.mutations) {
+          await removeFriend({ data: { friendshipId: mutation.original.id } });
+        }
       },
     }),
   ),

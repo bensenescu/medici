@@ -41,11 +41,7 @@ function Home() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <span className="loading loading-spinner loading-lg"></span>
-      </div>
-    );
+    return null;
   }
 
   if (isError) {

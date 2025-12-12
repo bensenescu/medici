@@ -2,6 +2,7 @@ import { queryCollectionOptions } from "@tanstack/query-db-collection";
 import { queryClient } from "./queryClient";
 import {
   getAllSettlements,
+  createSettlement,
   deleteSettlement,
 } from "@/serverFunctions/settlements";
 import { createCollection } from "@tanstack/react-db";
@@ -18,10 +19,24 @@ export const settlementsCollection = lazyInitForWorkers(() =>
       },
       queryClient,
       getKey: (item) => item.id,
-      // Settlements are created via createOptimisticAction (see createSettlement.ts)
+      onInsert: async ({ transaction }) => {
+        for (const mutation of transaction.mutations) {
+          await createSettlement({
+            data: {
+              poolId: mutation.modified.poolId,
+              toUserId: mutation.modified.toUserId,
+              amount: mutation.modified.amount,
+              note: mutation.modified.note ?? undefined,
+            },
+          });
+        }
+      },
       onDelete: async ({ transaction }) => {
-        const { original } = transaction.mutations[0];
-        await deleteSettlement({ data: { settlementId: original.id } });
+        for (const mutation of transaction.mutations) {
+          await deleteSettlement({
+            data: { settlementId: mutation.original.id },
+          });
+        }
       },
     }),
   ),
