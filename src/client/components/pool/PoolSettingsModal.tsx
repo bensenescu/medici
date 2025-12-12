@@ -1,22 +1,25 @@
 import { Plus } from "lucide-react";
 import { getUserDisplayName } from "@/utils/formatters";
+import { poolMembersCollection } from "@/client/tanstack-db";
 import type { PoolMember } from "./types";
 
 interface PoolSettingsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
   poolMembers: PoolMember[] | undefined;
   currentUserId: string;
-  onRemoveMember: (memberId: string) => void;
+  isOpen: boolean;
+  onClose: () => void;
 }
 
 export function PoolSettingsModal({
-  isOpen,
-  onClose,
   poolMembers,
   currentUserId,
-  onRemoveMember,
+  isOpen,
+  onClose,
 }: PoolSettingsModalProps) {
+  const handleRemoveMember = (memberId: string) => {
+    poolMembersCollection.delete(memberId);
+  };
+
   return (
     <dialog className={`modal ${isOpen ? "modal-open" : ""}`} onClick={onClose}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
@@ -52,7 +55,7 @@ export function PoolSettingsModal({
                     </span>
                     {!isCurrentUser && (
                       <button
-                        onClick={() => onRemoveMember(member.id)}
+                        onClick={() => handleRemoveMember(member.id)}
                         className="btn btn-ghost btn-sm btn-square text-base-content/40 hover:text-error"
                         title="Remove member"
                       >

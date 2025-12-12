@@ -1,35 +1,30 @@
 import { useState, useEffect } from "react";
-import type { ExpenseCategory } from "@/types";
+import { expensesCollection } from "@/client/tanstack-db";
 import { ExpenseForm, type ExpenseFormData } from "./ExpenseForm";
 import { applyCategoryRules } from "@/utils/categoryRules";
-
-interface Rule {
-  rule: string;
-  category: ExpenseCategory;
-}
+import { DEFAULT_EXPENSE_CATEGORY } from "@/db/schema";
+import type { ExpenseCategoryRule } from "@/types";
 
 interface AddExpenseModalProps {
+  poolId: string;
+  currentUserId: string;
+  rules: ExpenseCategoryRule[] | undefined;
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (expense: {
-    name: string;
-    amount: number;
-    category: ExpenseCategory;
-  }) => void;
-  rules: Rule[] | undefined;
 }
 
 const DEFAULT_FORM_DATA: ExpenseFormData = {
   name: "",
   amount: "",
-  category: "miscellaneous",
+  category: DEFAULT_EXPENSE_CATEGORY,
 };
 
 export function AddExpenseModal({
+  poolId,
+  currentUserId,
+  rules,
   isOpen,
   onClose,
-  onSubmit,
-  rules,
 }: AddExpenseModalProps) {
   const [formData, setFormData] = useState<ExpenseFormData>(DEFAULT_FORM_DATA);
 
@@ -38,7 +33,7 @@ export function AddExpenseModal({
     if (!formData.name.trim() || !rules || rules.length === 0) return;
 
     const matchedCategory = applyCategoryRules(formData.name, rules);
-    if (matchedCategory !== "miscellaneous") {
+    if (matchedCategory !== DEFAULT_EXPENSE_CATEGORY) {
       setFormData((prev) => ({ ...prev, category: matchedCategory }));
     }
   }, [formData.name, rules]);
@@ -46,12 +41,21 @@ export function AddExpenseModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.name.trim() && formData.amount) {
-      onSubmit({
+      expensesCollection.insert({
+        id: crypto.randomUUID(),
+        poolId,
+        paidByUserId: currentUserId,
         name: formData.name.trim(),
         amount: parseFloat(formData.amount),
+        description: null,
+        notes: null,
         category: formData.category,
+        isSettled: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
       setFormData(DEFAULT_FORM_DATA);
+      onClose();
     }
   };
 

@@ -1,21 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useLiveQuery } from "@tanstack/react-db";
-import { eq } from "@tanstack/db";
 import { useMemo, useState } from "react";
 import {
   poolsCollection,
   expensesCollection,
-  friendsCollection,
   rulesCollection,
   poolMembersCollection,
   settlementsCollection,
 } from "@/client/tanstack-db";
 import { ArrowLeft } from "lucide-react";
-import type { ExpenseCategory } from "@/types";
-import { addMemberToPool } from "@/serverFunctions/pools";
+import { eq } from "@tanstack/db";
 import { useCurrentUser } from "@/embedded-sdk/client";
 
-import { createSettlement } from "@/client/actions/createSettlement";
 import {
   BalanceService,
   type PoolBalanceResult,
@@ -58,14 +54,15 @@ function PoolDetail() {
   // Get current user from session token (instant, no server call needed)
   const currentUser = useCurrentUser();
 
-  // Live queries
-  const { data: allPools } = useLiveQuery((q) =>
-    q.from({ pool: poolsCollection }),
+  // Live queries - all data fetched here, passed down to children
+  const { data: pools } = useLiveQuery(
+    (q) =>
+      q
+        .from({ pool: poolsCollection })
+        .where(({ pool }) => eq(pool.id, poolId)),
+    [poolId],
   );
-  const pool = useMemo(
-    () => allPools?.find((p) => p.id === poolId),
-    [allPools, poolId],
-  );
+  const pool = pools?.[0];
 
   const { data: allExpenses } = useLiveQuery(
     (q) =>
@@ -74,10 +71,6 @@ function PoolDetail() {
         .where(({ expense }) => eq(expense.poolId, poolId))
         .orderBy(({ expense }) => expense.createdAt, "desc"),
     [poolId],
-  );
-
-  const { data: friends } = useLiveQuery((q) =>
-    q.from({ friend: friendsCollection }),
   );
 
   const { data: rules } = useLiveQuery((q) =>
@@ -130,89 +123,9 @@ function PoolDetail() {
     );
   }, [allExpenses, poolSettlements, poolMembers]);
 
-  // Get friends not already in pool
-  const availableFriends = useMemo(() => {
-    if (!friends || !poolMembers?.length) return [];
-    const memberIds = new Set(poolMembers.map((m) => m.userId));
-    return friends.filter((f) => !memberIds.has(f.user.id));
-  }, [friends, poolMembers]);
-
-  // Event handlers
-  const handleAddExpense = (expense: {
-    name: string;
-    amount: number;
-    category: ExpenseCategory;
-  }) => {
-    if (!currentUser) return;
-    expensesCollection.insert({
-      id: crypto.randomUUID(),
-      poolId,
-      paidByUserId: currentUser.userId,
-      name: expense.name,
-      amount: expense.amount,
-      description: null,
-      notes: null,
-      category: expense.category,
-      isSettled: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-    setShowAddExpense(false);
-  };
-
-  const handleEditExpense = (
-    expenseId: string,
-    updates: { name: string; amount: number; category: ExpenseCategory },
-  ) => {
-    expensesCollection.update(expenseId, (draft) => {
-      draft.name = updates.name;
-      draft.amount = updates.amount;
-      draft.category = updates.category;
-      draft.updatedAt = new Date().toISOString();
-    });
-    setShowEditExpense(false);
-    setEditingExpense(null);
-  };
-
-  const handleDeleteExpense = (expenseId: string) => {
-    expensesCollection.delete(expenseId);
-  };
-
-  const handleAddMember = async (friendId: string) => {
-    await addMemberToPool({ data: { poolId, friendId } });
-    await poolMembersCollection.utils.refetch();
-    setShowAddMember(false);
-  };
-
-  const handleRemoveMember = (memberId: string) => {
-    poolMembersCollection.delete(memberId);
-  };
-
   const openEditModal = (expense: Expense) => {
     setEditingExpense(expense);
     setShowEditExpense(true);
-  };
-
-  const handleRecordPayment = (
-    payments: Array<{ toUserId: string; amount: number }>,
-    note: string,
-  ) => {
-    if (!currentUser) return;
-    for (const payment of payments) {
-      createSettlement({
-        poolId,
-        optimisticFromUserId: currentUser.userId,
-        toUserId: payment.toUserId,
-        amount: payment.amount,
-        note: note || undefined,
-      });
-    }
-    setShowRecordPayment(false);
-    setSelectedDebts([]);
-  };
-
-  const handleDeleteSettlement = (settlementId: string) => {
-    settlementsCollection.delete(settlementId);
   };
 
   const handleRecordPaymentFromBalances = (debts: SelectedDebt[]) => {
@@ -267,24 +180,23 @@ function PoolDetail() {
 
         <SettlementHistory
           settlements={poolSettlements ?? []}
-          poolMembers={poolMembers}
+          poolMembers={poolMembers as PoolMember[] | undefined}
           currentUserId={currentUserId}
-          onDeleteSettlement={handleDeleteSettlement}
         />
 
         <ExpenseList
           expenses={expenses as Expense[]}
           onAddExpense={() => setShowAddExpense(true)}
           onEditExpense={openEditModal}
-          onDeleteExpense={handleDeleteExpense}
         />
       </div>
 
       <AddExpenseModal
+        poolId={poolId}
+        currentUserId={currentUserId}
+        rules={rules}
         isOpen={showAddExpense}
         onClose={() => setShowAddExpense(false)}
-        onSubmit={handleAddExpense}
-        rules={rules}
       />
 
       <EditExpenseModal
@@ -294,32 +206,31 @@ function PoolDetail() {
           setShowEditExpense(false);
           setEditingExpense(null);
         }}
-        onSubmit={handleEditExpense}
       />
 
       <AddMemberModal
+        poolId={poolId}
+        poolMembers={poolMembers as PoolMember[] | undefined}
         isOpen={showAddMember}
         onClose={() => setShowAddMember(false)}
-        onSubmit={handleAddMember}
-        availableFriends={availableFriends}
       />
 
       <RecordPaymentModal
+        poolId={poolId}
+        currentUserId={currentUserId}
         isOpen={showRecordPayment}
         onClose={() => {
           setShowRecordPayment(false);
           setSelectedDebts([]);
         }}
-        onSubmit={handleRecordPayment}
         initialDebts={selectedDebts}
       />
 
       <PoolSettingsModal
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
         poolMembers={poolMembers as PoolMember[] | undefined}
         currentUserId={currentUserId}
-        onRemoveMember={handleRemoveMember}
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
       />
     </>
   );

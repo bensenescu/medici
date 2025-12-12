@@ -5,16 +5,19 @@ import { Plus, Trash2, Sparkles, Tag } from "lucide-react";
 import { categoryInfo, type ExpenseCategory } from "@/types";
 import { rulesCollection } from "@/client/tanstack-db";
 import { CategorySelect } from "@/client/components/pool/CategorySelect";
+import { useCurrentUser } from "@/embedded-sdk/client";
+import { DEFAULT_EXPENSE_CATEGORY } from "@/db/schema";
 
 export const Route = createFileRoute("/rules")({
   component: RulesPage,
 });
 
 function RulesPage() {
+  const currentUser = useCurrentUser();
   const [showAddRule, setShowAddRule] = useState(false);
   const [newRule, setNewRule] = useState({
     rule: "",
-    category: "miscellaneous" as ExpenseCategory,
+    category: DEFAULT_EXPENSE_CATEGORY as ExpenseCategory,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -33,12 +36,12 @@ function RulesPage() {
     try {
       rulesCollection.insert({
         id: crypto.randomUUID(),
-        userId: "pending", // Server will replace with actual userId
+        userId: currentUser?.userId ?? "",
         rule: newRule.rule.trim().toLowerCase(),
         category: newRule.category,
         createdAt: new Date().toISOString(),
       });
-      setNewRule({ rule: "", category: "miscellaneous" });
+      setNewRule({ rule: "", category: DEFAULT_EXPENSE_CATEGORY });
       setShowAddRule(false);
     } catch (error) {
       console.error("Failed to create rule:", error);

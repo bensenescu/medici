@@ -39,6 +39,8 @@ export const expenseCategories = [
   "professional_services",
 ] as const;
 
+export const DEFAULT_EXPENSE_CATEGORY = "miscellaneous" as const;
+
 export const poolRoles = ["PARTICIPANT", "ADMIN"] as const;
 
 // ============================================================================

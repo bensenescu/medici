@@ -1,22 +1,22 @@
 import { useState, useEffect } from "react";
 import { DollarSign } from "lucide-react";
+import { createSettlement } from "@/client/actions/createSettlement";
 import { CURRENCY_TOLERANCE } from "@/utils/formatters";
 import type { SelectedDebt } from "./types";
 
 interface RecordPaymentModalProps {
+  poolId: string;
+  currentUserId: string;
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (
-    payments: Array<{ toUserId: string; amount: number }>,
-    note: string,
-  ) => void;
   initialDebts: SelectedDebt[];
 }
 
 export function RecordPaymentModal({
+  poolId,
+  currentUserId,
   isOpen,
   onClose,
-  onSubmit,
   initialDebts,
 }: RecordPaymentModalProps) {
   const [debts, setDebts] = useState<SelectedDebt[]>(initialDebts);
@@ -65,12 +65,18 @@ export function RecordPaymentModal({
     setError(null);
 
     try {
-      onSubmit(
-        paymentsToSubmit.map((p) => ({
-          toUserId: p.toUserId,
-          amount: p.amount,
-        })),
-        note,
+      // Create all settlements - createSettlement handles optimistic updates and server sync
+      // Each call is independent, so we fire them all at once
+      await Promise.all(
+        paymentsToSubmit.map((payment) =>
+          createSettlement({
+            poolId,
+            optimisticFromUserId: currentUserId,
+            toUserId: payment.toUserId,
+            amount: payment.amount,
+            note: note || undefined,
+          }),
+        ),
       );
       onClose();
     } finally {

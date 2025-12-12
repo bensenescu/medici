@@ -73,6 +73,43 @@ export type ExpenseWithDetails = {
   };
 };
 
+// Pool member with embedded user info (for UI display)
+export type PoolMemberWithUser = {
+  id: string;
+  poolId: string;
+  userId: string;
+  role: "PARTICIPANT" | "ADMIN";
+  createdAt: string;
+  user: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+    venmoHandle: string | null;
+  };
+};
+
+// Settlement with all fields (for UI display)
+export type SettlementWithDetails = {
+  id: string;
+  poolId: string;
+  fromUserId: string;
+  toUserId: string;
+  amount: number;
+  note: string | null;
+  createdAt: string;
+  createdByUserId: string;
+};
+
+// Selected debt for payment modal
+export type SelectedDebt = {
+  toUserId: string;
+  toUserName: string;
+  toUserVenmo: string | null;
+  maxAmount: number;
+  paymentAmount: string;
+};
+
 // Category display info - typed to ensure all categories have display info
 export const categoryInfo: Record<
   (typeof _expenseCategories)[number],

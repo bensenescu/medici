@@ -3,24 +3,8 @@ import { ensureUserMiddleware } from "@/middleware/ensureUser";
 import { useSessionTokenClientMiddleware } from "@/embedded-sdk/client/useSessionTokenClientMiddleware";
 import { PoolMemberService } from "@/server/services";
 
-// ============================================================================
-// Pool Member type with user info for client-side use
-// ============================================================================
-
-export type PoolMemberWithUser = {
-  id: string;
-  poolId: string;
-  userId: string;
-  role: "PARTICIPANT" | "ADMIN";
-  createdAt: string;
-  user: {
-    id: string;
-    email: string;
-    firstName: string | null;
-    lastName: string | null;
-    venmoHandle: string | null;
-  };
-};
+// Re-export the type from central location for backwards compatibility
+export type { PoolMemberWithUser } from "@/types";
 
 // ============================================================================
 // GET ALL POOL MEMBERS (for current user's pools)
