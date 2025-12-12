@@ -13,7 +13,7 @@ import { Route as RulesRouteImport } from './routes/rules'
 import { Route as FriendsRouteImport } from './routes/friends'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PoolsPoolIdRouteImport } from './routes/pools.$poolId'
-import { Route as PoolsPoolIdSettingsRouteImport } from './routes/pools.$poolId.settings'
+import { Route as PoolsPoolIdSettingsRouteImport } from './routes/pools.$poolId_.settings'
 
 const RulesRoute = RulesRouteImport.update({
   id: '/rules',
@@ -36,23 +36,23 @@ const PoolsPoolIdRoute = PoolsPoolIdRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const PoolsPoolIdSettingsRoute = PoolsPoolIdSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => PoolsPoolIdRoute,
+  id: '/pools/$poolId_/settings',
+  path: '/pools/$poolId/settings',
+  getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/friends': typeof FriendsRoute
   '/rules': typeof RulesRoute
-  '/pools/$poolId': typeof PoolsPoolIdRouteWithChildren
+  '/pools/$poolId': typeof PoolsPoolIdRoute
   '/pools/$poolId/settings': typeof PoolsPoolIdSettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/friends': typeof FriendsRoute
   '/rules': typeof RulesRoute
-  '/pools/$poolId': typeof PoolsPoolIdRouteWithChildren
+  '/pools/$poolId': typeof PoolsPoolIdRoute
   '/pools/$poolId/settings': typeof PoolsPoolIdSettingsRoute
 }
 export interface FileRoutesById {
@@ -60,8 +60,8 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/friends': typeof FriendsRoute
   '/rules': typeof RulesRoute
-  '/pools/$poolId': typeof PoolsPoolIdRouteWithChildren
-  '/pools/$poolId/settings': typeof PoolsPoolIdSettingsRoute
+  '/pools/$poolId': typeof PoolsPoolIdRoute
+  '/pools/$poolId_/settings': typeof PoolsPoolIdSettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -79,14 +79,15 @@ export interface FileRouteTypes {
     | '/friends'
     | '/rules'
     | '/pools/$poolId'
-    | '/pools/$poolId/settings'
+    | '/pools/$poolId_/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   FriendsRoute: typeof FriendsRoute
   RulesRoute: typeof RulesRoute
-  PoolsPoolIdRoute: typeof PoolsPoolIdRouteWithChildren
+  PoolsPoolIdRoute: typeof PoolsPoolIdRoute
+  PoolsPoolIdSettingsRoute: typeof PoolsPoolIdSettingsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -119,33 +120,22 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PoolsPoolIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/pools/$poolId/settings': {
-      id: '/pools/$poolId/settings'
-      path: '/settings'
+    '/pools/$poolId_/settings': {
+      id: '/pools/$poolId_/settings'
+      path: '/pools/$poolId/settings'
       fullPath: '/pools/$poolId/settings'
       preLoaderRoute: typeof PoolsPoolIdSettingsRouteImport
-      parentRoute: typeof PoolsPoolIdRoute
+      parentRoute: typeof rootRouteImport
     }
   }
 }
-
-interface PoolsPoolIdRouteChildren {
-  PoolsPoolIdSettingsRoute: typeof PoolsPoolIdSettingsRoute
-}
-
-const PoolsPoolIdRouteChildren: PoolsPoolIdRouteChildren = {
-  PoolsPoolIdSettingsRoute: PoolsPoolIdSettingsRoute,
-}
-
-const PoolsPoolIdRouteWithChildren = PoolsPoolIdRoute._addFileChildren(
-  PoolsPoolIdRouteChildren,
-)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   FriendsRoute: FriendsRoute,
   RulesRoute: RulesRoute,
-  PoolsPoolIdRoute: PoolsPoolIdRouteWithChildren,
+  PoolsPoolIdRoute: PoolsPoolIdRoute,
+  PoolsPoolIdSettingsRoute: PoolsPoolIdSettingsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

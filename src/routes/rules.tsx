@@ -177,8 +177,8 @@ function RulesPage() {
       >
         <div className="modal-box" onClick={(e) => e.stopPropagation()}>
           <h3 className="font-bold text-lg">Add Rule</h3>
-          <form onSubmit={handleAddRule} className="mt-4">
-            <div className="form-control">
+          <form onSubmit={handleAddRule} className="mt-4 space-y-4">
+            <div className="form-control w-full">
               <label className="label">
                 <span className="label-text">
                   When expense name contains...
@@ -191,7 +191,7 @@ function RulesPage() {
                   setNewRule({ ...newRule, rule: e.target.value })
                 }
                 placeholder="e.g., uber, costco, netflix"
-                className="input input-bordered"
+                className="input input-bordered w-full"
                 autoFocus
               />
               <label className="label">
@@ -201,7 +201,7 @@ function RulesPage() {
               </label>
             </div>
 
-            <div className="form-control mt-4">
+            <div className="form-control w-full">
               <label className="label">
                 <span className="label-text">Categorize as...</span>
               </label>

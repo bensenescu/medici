@@ -139,8 +139,8 @@ function Home() {
       >
         <div className="modal-box" onClick={(e) => e.stopPropagation()}>
           <h3 className="font-bold text-lg">Create New Pool</h3>
-          <form onSubmit={handleCreatePool} className="mt-4">
-            <div className="form-control">
+          <form onSubmit={handleCreatePool} className="mt-4 space-y-4">
+            <div className="form-control w-full">
               <label className="label">
                 <span className="label-text">Pool Name</span>
               </label>
@@ -149,12 +149,12 @@ function Home() {
                 value={newPoolName}
                 onChange={(e) => setNewPoolName(e.target.value)}
                 placeholder="e.g., Roommates, Trip to Hawaii"
-                className="input input-bordered"
+                className="input input-bordered w-full"
                 autoFocus
               />
             </div>
 
-            <div className="form-control mt-4">
+            <div className="form-control w-full">
               <label className="label">
                 <span className="label-text">Description (optional)</span>
               </label>
@@ -162,7 +162,7 @@ function Home() {
                 value={newPoolDescription}
                 onChange={(e) => setNewPoolDescription(e.target.value)}
                 placeholder="What's this pool for?"
-                className="textarea textarea-bordered"
+                className="textarea textarea-bordered w-full"
                 rows={2}
               />
             </div>
