@@ -115,8 +115,6 @@ export const expenses = sqliteTable(
       .references(() => users.id),
     name: text("name").notNull(),
     amount: real("amount").notNull(),
-    description: text("description"),
-    notes: text("notes"),
     category: text("category", { enum: expenseCategories })
       .notNull()
       .default("miscellaneous"),

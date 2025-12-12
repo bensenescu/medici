@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { expensesCollection } from "@/client/tanstack-db";
-import type { ExpenseCategory } from "@/types";
-import { CategorySelect } from "./CategorySelect";
-import type { Expense } from "./types";
+import { DEFAULT_EXPENSE_CATEGORY } from "@/db/schema";
+import type { Expense } from "@/types";
+import { ExpenseForm, type ExpenseFormData } from "./ExpenseForm";
 
 interface EditExpenseModalProps {
   isOpen: boolean;
@@ -15,28 +15,31 @@ export function EditExpenseModal({
   expense,
   onClose,
 }: EditExpenseModalProps) {
-  const [name, setName] = useState("");
-  const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState<ExpenseCategory>("miscellaneous");
+  const [formData, setFormData] = useState<ExpenseFormData>({
+    name: "",
+    amount: "",
+    category: DEFAULT_EXPENSE_CATEGORY,
+  });
 
   // Sync form state when expense changes
   useEffect(() => {
     if (expense) {
-      setName(expense.name);
-      setAmount(expense.amount.toString());
-      setCategory(expense.category);
+      setFormData({
+        name: expense.name,
+        amount: expense.amount.toString(),
+        category: expense.category,
+      });
     }
   }, [expense]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!expense || !name.trim() || !amount) return;
+    if (!expense || !formData.name.trim() || !formData.amount) return;
 
-    // Update expense directly
     expensesCollection.update(expense.id, (draft) => {
-      draft.name = name.trim();
-      draft.amount = parseFloat(amount);
-      draft.category = category;
+      draft.name = formData.name.trim();
+      draft.amount = parseFloat(formData.amount);
+      draft.category = formData.category;
       draft.updatedAt = new Date().toISOString();
     });
     onClose();
@@ -46,56 +49,13 @@ export function EditExpenseModal({
     <dialog className={`modal ${isOpen ? "modal-open" : ""}`} onClick={onClose}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <h3 className="font-bold text-lg mb-6">Edit Expense</h3>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="form-control w-full">
-            <label className="label">
-              <span className="label-text font-medium">Expense Name</span>
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Groceries, Dinner, Utilities"
-              className="input input-bordered w-full"
-              autoFocus
-            />
-          </div>
-          <div className="form-control w-full">
-            <label className="label">
-              <span className="label-text font-medium">Amount</span>
-            </label>
-            <label className="input input-bordered w-full flex items-center gap-2">
-              <span className="text-base-content/60">$</span>
-              <input
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-                className="grow bg-transparent outline-none"
-              />
-            </label>
-          </div>
-          <div className="form-control w-full">
-            <label className="label">
-              <span className="label-text font-medium">Category</span>
-            </label>
-            <CategorySelect value={category} onChange={setCategory} />
-          </div>
-          <div className="modal-action pt-2">
-            <button type="button" onClick={onClose} className="btn btn-ghost">
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={!name.trim() || !amount}
-              className="btn btn-primary"
-            >
-              Save Changes
-            </button>
-          </div>
-        </form>
+        <ExpenseForm
+          data={formData}
+          onChange={setFormData}
+          onSubmit={handleSubmit}
+          onCancel={onClose}
+          submitLabel="Save Changes"
+        />
       </div>
     </dialog>
   );

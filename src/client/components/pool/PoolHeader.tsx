@@ -2,15 +2,15 @@ import { Link } from "@tanstack/react-router";
 import { ArrowLeft, Settings } from "lucide-react";
 
 interface PoolHeaderProps {
+  poolId: string;
   poolName: string;
   poolDescription: string | null;
-  onOpenSettings: () => void;
 }
 
 export function PoolHeader({
+  poolId,
   poolName,
   poolDescription,
-  onOpenSettings,
 }: PoolHeaderProps) {
   return (
     <div className="mb-4">
@@ -25,13 +25,14 @@ export function PoolHeader({
             <p className="text-base-content/60 mt-1">{poolDescription}</p>
           )}
         </div>
-        <button
-          onClick={onOpenSettings}
+        <Link
+          to="/pools/$poolId/settings"
+          params={{ poolId }}
           className="btn btn-ghost btn-square btn-sm"
           title="Pool settings"
         >
           <Settings className="h-5 w-5" />
-        </button>
+        </Link>
       </div>
     </div>
   );

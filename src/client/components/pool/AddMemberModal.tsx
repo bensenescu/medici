@@ -4,11 +4,11 @@ import { useLiveQuery } from "@tanstack/react-db";
 import { UserPlus } from "lucide-react";
 import { friendsCollection, poolMembersCollection } from "@/client/tanstack-db";
 import { addMemberToPool } from "@/serverFunctions/pools";
-import type { PoolMember } from "./types";
+import type { PoolMemberWithUser } from "@/types";
 
 interface AddMemberModalProps {
   poolId: string;
-  poolMembers: PoolMember[] | undefined;
+  poolMembers: PoolMemberWithUser[] | undefined;
   isOpen: boolean;
   onClose: () => void;
 }

@@ -81,13 +81,7 @@ export class ExpenseRepository {
     data: Partial<
       Pick<
         NewExpense,
-        | "name"
-        | "amount"
-        | "category"
-        | "description"
-        | "notes"
-        | "isSettled"
-        | "updatedAt"
+        "name" | "amount" | "category" | "isSettled" | "updatedAt"
       >
     >,
   ) {

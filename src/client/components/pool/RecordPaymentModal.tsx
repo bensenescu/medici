@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { DollarSign } from "lucide-react";
 import { createSettlement } from "@/client/actions/createSettlement";
 import { CURRENCY_TOLERANCE } from "@/utils/formatters";
-import type { SelectedDebt } from "./types";
+import type { SelectedDebt } from "@/types";
 
 interface RecordPaymentModalProps {
   poolId: string;
