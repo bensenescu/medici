@@ -12,7 +12,6 @@ import {
   verifyPoolMembership,
 } from "@/server/repositories";
 import { BalanceService } from "@/shared/BalanceService";
-import type { Expense } from "@/db/schema";
 
 export interface CreateSettlementInput {
   poolId: string;
@@ -67,36 +66,6 @@ function validateSettlementAmount(
 }
 
 /**
- * Check if pool is fully settled and clean up if so.
- */
-async function checkAndFinalizePoolSettlement(
-  poolId: string,
-  memberUserIds: string[],
-  poolExpenses: Expense[],
-  now: string,
-): Promise<boolean> {
-  const updatedSettlements = await SettlementRepository.findAllByPool(poolId);
-
-  const updatedBalances = BalanceService.computePoolBalances(
-    poolExpenses,
-    updatedSettlements,
-    memberUserIds,
-  );
-
-  const allSettled = updatedBalances.memberBalances.every(
-    (b) => Math.abs(b.balance) < CURRENCY_TOLERANCE,
-  );
-
-  if (allSettled && poolExpenses.some((e) => !e.isSettled)) {
-    await ExpenseRepository.settleAllByPool(poolId, now);
-    await SettlementRepository.deleteAllByPool(poolId);
-    return true;
-  }
-
-  return false;
-}
-
-/**
  * Create a settlement (record payment).
  * Verifies user is a member and validates amount against debt.
  */
@@ -135,14 +104,7 @@ async function createSettlement(userId: string, input: CreateSettlementInput) {
     createdByUserId: userId,
   });
 
-  const poolSettled = await checkAndFinalizePoolSettlement(
-    input.poolId,
-    memberUserIds,
-    poolExpenses,
-    now,
-  );
-
-  return { success: true, settlementId, poolSettled };
+  return { success: true, settlementId };
 }
 
 /**

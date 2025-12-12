@@ -19,7 +19,6 @@ export const settlementsCollection = lazyInitForWorkers(() =>
       queryClient,
       getKey: (item) => item.id,
       // Settlements are created via createOptimisticAction (see createSettlement.ts)
-      // which handles the "pool fully settled" edge case with refetches
       onDelete: async ({ transaction }) => {
         const { original } = transaction.mutations[0];
         await deleteSettlement({ data: { settlementId: original.id } });

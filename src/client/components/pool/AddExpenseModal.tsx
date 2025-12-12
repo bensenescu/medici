@@ -48,7 +48,6 @@ export function AddExpenseModal({
         name: formData.name.trim(),
         amount: parseFloat(formData.amount),
         category: formData.category,
-        isSettled: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
