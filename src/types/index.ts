@@ -21,7 +21,7 @@ export type {
   SimplifiedDebt,
   BalanceUser,
   PoolBalanceResult,
-} from "@/server/services/BalanceService";
+} from "@/shared/BalanceService";
 
 // Computed types for UI
 export type PoolWithMemberships = {
@@ -55,8 +55,6 @@ export type ExpenseWithDetails = {
   paidByUserId: string;
   name: string;
   amount: number;
-  description: string | null;
-  notes: string | null;
   category: (typeof _expenseCategories)[number];
   isSettled: boolean;
   createdAt: string;

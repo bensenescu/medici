@@ -12,7 +12,7 @@ import {
   verifyPoolMembership,
   verifyPoolAdmin,
 } from "@/server/repositories";
-import { BalanceService, type BalanceUser } from "./BalanceService";
+import { BalanceService, type BalanceUser } from "@/shared/BalanceService";
 
 export interface CreatePoolInput {
   id: string;

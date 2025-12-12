@@ -14,8 +14,6 @@ CREATE TABLE `expenses` (
 	`paid_by_user_id` text NOT NULL,
 	`name` text NOT NULL,
 	`amount` real NOT NULL,
-	`description` text,
-	`notes` text,
 	`category` text DEFAULT 'miscellaneous' NOT NULL,
 	`is_settled` integer DEFAULT false NOT NULL,
 	`created_at` text DEFAULT (current_timestamp) NOT NULL,

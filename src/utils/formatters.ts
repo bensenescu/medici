@@ -23,3 +23,18 @@ export function getUserDisplayName(user?: {
   }
   return user.email.split("@")[0];
 }
+
+/**
+ * Get initials for a user, falling back to email initial.
+ * Priority: firstName initial > email initial
+ */
+export function getUserInitials(user?: {
+  firstName?: string | null;
+  email: string;
+}): string {
+  if (!user) return "?";
+  if (user.firstName && user.firstName.length > 0) {
+    return user.firstName[0].toUpperCase();
+  }
+  return user.email[0].toUpperCase();
+}

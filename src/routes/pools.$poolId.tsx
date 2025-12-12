@@ -15,7 +15,7 @@ import { useCurrentUser } from "@/embedded-sdk/client";
 import {
   BalanceService,
   type PoolBalanceResult,
-} from "@/server/services/BalanceService";
+} from "@/shared/BalanceService";
 import { ExpenseList } from "@/client/components/pool/ExpenseList";
 import { SettlementHistory } from "@/client/components/pool/SettlementHistory";
 import { BalancesCard } from "@/client/components/pool/BalancesCard";
@@ -24,12 +24,7 @@ import { AddExpenseModal } from "@/client/components/pool/AddExpenseModal";
 import { EditExpenseModal } from "@/client/components/pool/EditExpenseModal";
 import { AddMemberModal } from "@/client/components/pool/AddMemberModal";
 import { RecordPaymentModal } from "@/client/components/pool/RecordPaymentModal";
-import { PoolSettingsModal } from "@/client/components/pool/PoolSettingsModal";
-import type {
-  Expense,
-  SelectedDebt,
-  PoolMember,
-} from "@/client/components/pool/types";
+import type { Expense, SelectedDebt, PoolMemberWithUser } from "@/types";
 
 export const Route = createFileRoute("/pools/$poolId")({
   component: PoolDetail,
@@ -42,7 +37,6 @@ function PoolDetail() {
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [showEditExpense, setShowEditExpense] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [showRecordPayment, setShowRecordPayment] = useState(false);
 
   // Edit expense state
@@ -163,9 +157,9 @@ function PoolDetail() {
     <>
       <div className="px-4 pb-20 md:pt-4 md:pb-0 overflow-auto">
         <PoolHeader
+          poolId={poolId}
           poolName={pool.name}
           poolDescription={pool.description}
-          onOpenSettings={() => setShowSettings(true)}
         />
 
         <BalancesCard
@@ -180,7 +174,7 @@ function PoolDetail() {
 
         <SettlementHistory
           settlements={poolSettlements ?? []}
-          poolMembers={poolMembers as PoolMember[] | undefined}
+          poolMembers={poolMembers as PoolMemberWithUser[] | undefined}
           currentUserId={currentUserId}
         />
 
@@ -210,7 +204,7 @@ function PoolDetail() {
 
       <AddMemberModal
         poolId={poolId}
-        poolMembers={poolMembers as PoolMember[] | undefined}
+        poolMembers={poolMembers as PoolMemberWithUser[] | undefined}
         isOpen={showAddMember}
         onClose={() => setShowAddMember(false)}
       />
@@ -224,13 +218,6 @@ function PoolDetail() {
           setSelectedDebts([]);
         }}
         initialDebts={selectedDebts}
-      />
-
-      <PoolSettingsModal
-        poolMembers={poolMembers as PoolMember[] | undefined}
-        currentUserId={currentUserId}
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
       />
     </>
   );

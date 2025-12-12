@@ -47,8 +47,6 @@ export function AddExpenseModal({
         paidByUserId: currentUserId,
         name: formData.name.trim(),
         amount: parseFloat(formData.amount),
-        description: null,
-        notes: null,
         category: formData.category,
         isSettled: false,
         createdAt: new Date().toISOString(),

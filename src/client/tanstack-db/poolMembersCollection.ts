@@ -23,7 +23,7 @@ export const poolMembersCollection = lazyInitForWorkers(() =>
       onDelete: async ({ transaction }) => {
         const { original } = transaction.mutations[0];
         await removeMemberFromPool({
-          data: { poolId: original.poolId, memberId: original.id },
+          data: { poolId: original.poolId, memberId: original.userId },
         });
       },
     }),

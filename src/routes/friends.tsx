@@ -4,6 +4,7 @@ import { useState } from "react";
 import { friendsCollection } from "@/client/tanstack-db";
 import { addFriend } from "@/serverFunctions/friends";
 import { UserPlus, Trash2, Users } from "lucide-react";
+import { getUserInitials } from "@/utils/formatters";
 
 export const Route = createFileRoute("/friends")({
   component: FriendsPage,
@@ -101,8 +102,7 @@ function FriendsPage() {
                     <div className="avatar placeholder">
                       <div className="bg-primary/10 text-primary w-10 h-10 rounded-full flex items-center justify-center">
                         <span className="text-sm font-medium">
-                          {friend.user.firstName?.[0]?.toUpperCase() ||
-                            friend.user.email[0].toUpperCase()}
+                          {getUserInitials(friend.user)}
                         </span>
                       </div>
                     </div>

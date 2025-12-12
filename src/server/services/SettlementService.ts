@@ -11,7 +11,7 @@ import {
   ExpenseRepository,
   verifyPoolMembership,
 } from "@/server/repositories";
-import { BalanceService } from "./BalanceService";
+import { BalanceService } from "@/shared/BalanceService";
 import type { Expense } from "@/db/schema";
 
 export interface CreateSettlementInput {
