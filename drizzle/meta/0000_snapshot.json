@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "087f3970-3aff-4b94-ab88-e4b0a3e9a997",
+  "id": "1e0e04b0-989f-4381-8648-0da2b99a1cb6",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "expense_category_rules": {
@@ -118,14 +118,6 @@
           "autoincrement": false,
           "default": "'miscellaneous'"
         },
-        "is_settled": {
-          "name": "is_settled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -157,13 +149,6 @@
             "paid_by_user_id"
           ],
           "isUnique": false
-        },
-        "expenses_settled_idx": {
-          "name": "expenses_settled_idx",
-          "columns": [
-            "is_settled"
-          ],
-          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -190,7 +175,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -245,6 +230,14 @@
             "friend_user_id"
           ],
           "isUnique": false
+        },
+        "friendships_user_friend_unique": {
+          "name": "friendships_user_friend_unique",
+          "columns": [
+            "user_id",
+            "friend_user_id"
+          ],
+          "isUnique": true
         }
       },
       "foreignKeys": {
@@ -334,6 +327,14 @@
             "user_id"
           ],
           "isUnique": false
+        },
+        "pool_memberships_pool_user_unique": {
+          "name": "pool_memberships_pool_user_unique",
+          "columns": [
+            "pool_id",
+            "user_id"
+          ],
+          "isUnique": true
         }
       },
       "foreignKeys": {
@@ -392,6 +393,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "created_by_user_id": {
+          "name": "created_by_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -418,7 +426,21 @@
           "isUnique": false
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "pools_created_by_user_id_users_id_fk": {
+          "name": "pools_created_by_user_id_users_id_fk",
+          "tableFrom": "pools",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
@@ -531,7 +553,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
         "settlements_to_user_id_users_id_fk": {
@@ -544,7 +566,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
         "settlements_created_by_user_id_users_id_fk": {
@@ -557,7 +579,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },

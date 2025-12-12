@@ -15,16 +15,14 @@ CREATE TABLE `expenses` (
 	`name` text NOT NULL,
 	`amount` real NOT NULL,
 	`category` text DEFAULT 'miscellaneous' NOT NULL,
-	`is_settled` integer DEFAULT false NOT NULL,
 	`created_at` text DEFAULT (current_timestamp) NOT NULL,
 	`updated_at` text DEFAULT (current_timestamp) NOT NULL,
 	FOREIGN KEY (`pool_id`) REFERENCES `pools`(`id`) ON UPDATE no action ON DELETE cascade,
-	FOREIGN KEY (`paid_by_user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
+	FOREIGN KEY (`paid_by_user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
 CREATE INDEX `expenses_pool_idx` ON `expenses` (`pool_id`);--> statement-breakpoint
 CREATE INDEX `expenses_paid_by_idx` ON `expenses` (`paid_by_user_id`);--> statement-breakpoint
-CREATE INDEX `expenses_settled_idx` ON `expenses` (`is_settled`);--> statement-breakpoint
 CREATE TABLE `friendships` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
@@ -36,6 +34,7 @@ CREATE TABLE `friendships` (
 --> statement-breakpoint
 CREATE INDEX `friendships_user_idx` ON `friendships` (`user_id`);--> statement-breakpoint
 CREATE INDEX `friendships_friend_idx` ON `friendships` (`friend_user_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `friendships_user_friend_unique` ON `friendships` (`user_id`,`friend_user_id`);--> statement-breakpoint
 CREATE TABLE `pool_memberships` (
 	`id` text PRIMARY KEY NOT NULL,
 	`pool_id` text NOT NULL,
@@ -48,12 +47,15 @@ CREATE TABLE `pool_memberships` (
 --> statement-breakpoint
 CREATE INDEX `pool_memberships_pool_idx` ON `pool_memberships` (`pool_id`);--> statement-breakpoint
 CREATE INDEX `pool_memberships_user_idx` ON `pool_memberships` (`user_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `pool_memberships_pool_user_unique` ON `pool_memberships` (`pool_id`,`user_id`);--> statement-breakpoint
 CREATE TABLE `pools` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
 	`description` text,
+	`created_by_user_id` text NOT NULL,
 	`created_at` text DEFAULT (current_timestamp) NOT NULL,
-	`updated_at` text DEFAULT (current_timestamp) NOT NULL
+	`updated_at` text DEFAULT (current_timestamp) NOT NULL,
+	FOREIGN KEY (`created_by_user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
 CREATE INDEX `pools_created_at_idx` ON `pools` (`created_at`);--> statement-breakpoint
@@ -67,9 +69,9 @@ CREATE TABLE `settlements` (
 	`created_at` text DEFAULT (current_timestamp) NOT NULL,
 	`created_by_user_id` text NOT NULL,
 	FOREIGN KEY (`pool_id`) REFERENCES `pools`(`id`) ON UPDATE no action ON DELETE cascade,
-	FOREIGN KEY (`from_user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action,
-	FOREIGN KEY (`to_user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action,
-	FOREIGN KEY (`created_by_user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
+	FOREIGN KEY (`from_user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`to_user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`created_by_user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
 CREATE INDEX `settlements_pool_idx` ON `settlements` (`pool_id`);--> statement-breakpoint
