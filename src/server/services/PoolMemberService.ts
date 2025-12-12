@@ -5,17 +5,19 @@
 
 import { PoolMembershipRepository } from "@/server/repositories";
 
-export class PoolMemberService {
-  /**
-   * Get all pool members for pools the user is a member of.
-   */
-  static async getAllPoolMembers(userId: string) {
-    const poolIds = await PoolMembershipRepository.findPoolIdsByUser(userId);
+/**
+ * Get all pool members for pools the user is a member of.
+ */
+async function getAllPoolMembers(userId: string) {
+  const poolIds = await PoolMembershipRepository.findPoolIdsByUser(userId);
 
-    if (poolIds.length === 0) {
-      return [];
-    }
-
-    return PoolMembershipRepository.findAllByPoolIdsWithUsers(poolIds);
+  if (poolIds.length === 0) {
+    return [];
   }
+
+  return PoolMembershipRepository.findAllByPoolIdsWithUsers(poolIds);
 }
+
+export const PoolMemberService = {
+  getAllPoolMembers,
+};
